@@ -18,11 +18,13 @@ namespace {
         std::snprintf(buf, sizeof(buf),
             "  \"arousal\": { \"enabled\": %s, \"x\": %.2f, \"y\": %.2f, "
             "\"iconHeightPx\": %.2f, \"textSizePx\": %.2f, \"showText\": %s, "
-            "\"imageSet\": %d },\n",
+            "\"imageSet\": %d, \"glowPulse\": %s, \"anOverlays\": %s },\n",
             a.enabled  ? "true" : "false",
             a.x, a.y, a.iconHeightPx, a.textSizePx,
             a.showText ? "true" : "false",
-            a.imageSet);
+            a.imageSet,
+            a.glowPulse  ? "true" : "false",
+            a.anOverlays ? "true" : "false");
         out += buf;
     }
 
@@ -65,6 +67,8 @@ namespace {
         if (!(v = FindValue(body, "textSizePx")).empty())   out.textSizePx   = std::strtof(v.c_str(), nullptr);
         if (!(v = FindValue(body, "showText")).empty())     out.showText     = (v.find("true") != std::string::npos);
         if (!(v = FindValue(body, "imageSet")).empty())     out.imageSet     = std::atoi(v.c_str());
+        if (!(v = FindValue(body, "glowPulse")).empty())    out.glowPulse    = (v.find("true") != std::string::npos);
+        if (!(v = FindValue(body, "anOverlays")).empty())   out.anOverlays   = (v.find("true") != std::string::npos);
     }
 }
 
