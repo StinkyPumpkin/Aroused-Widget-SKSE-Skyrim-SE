@@ -15,9 +15,10 @@ namespace Settings {
     };
 
     struct ArousalConfig : WidgetConfig {
-        int  imageSet   = 0;     // 0 = aroused (heart), 1 = exposure (drop)
-        bool glowPulse  = true;  // crossfade aroused8 <-> aroused9 (glow) at max arousal
-        bool anOverlays = true;  // Advanced Nudity flash overlays (ass/boobs/vagina)
+        int  imageSet     = 0;     // 0 = aroused (heart), 1 = exposure (drop)
+        bool glowPulse    = true;  // crossfade aroused8 <-> aroused9 (glow) at max arousal
+        bool anOverlays   = true;  // Advanced Nudity flash overlays (ass/boobs/vagina)
+        bool npcCrosshair = true;  // Shift + crosshair NPC -> peek their arousal for 5s
     };
 
     struct Config {

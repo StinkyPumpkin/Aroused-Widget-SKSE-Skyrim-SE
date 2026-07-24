@@ -30,6 +30,7 @@ namespace {
         if (ImGuiMCP::Combo("Image set##Arousal", &cfg.arousal.imageSet, sets, 2)) dirty = true;
         if (ImGuiMCP::Checkbox("Glow pulse at max arousal##Arousal", &cfg.arousal.glowPulse)) dirty = true;
         if (ImGuiMCP::Checkbox("Advanced Nudity overlays##Arousal", &cfg.arousal.anOverlays)) dirty = true;
+        if (ImGuiMCP::Checkbox("Shift+crosshair NPC arousal peek##Arousal", &cfg.arousal.npcCrosshair)) dirty = true;
 
         if (dirty) Settings::MarkDirty();
         { auto lk = Settings::Lock(); Settings::Get() = cfg; }

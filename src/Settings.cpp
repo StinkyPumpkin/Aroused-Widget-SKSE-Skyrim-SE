@@ -24,7 +24,8 @@ namespace {
             a.showText ? "true" : "false",
             a.imageSet,
             a.glowPulse  ? "true" : "false",
-            a.anOverlays ? "true" : "false");
+            a.anOverlays ? "true" : "false",
+            a.npcCrosshair ? "true" : "false");
         out += buf;
     }
 
@@ -69,6 +70,7 @@ namespace {
         if (!(v = FindValue(body, "imageSet")).empty())     out.imageSet     = std::atoi(v.c_str());
         if (!(v = FindValue(body, "glowPulse")).empty())    out.glowPulse    = (v.find("true") != std::string::npos);
         if (!(v = FindValue(body, "anOverlays")).empty())   out.anOverlays   = (v.find("true") != std::string::npos);
+        if (!(v = FindValue(body, "npcCrosshair")).empty()) out.npcCrosshair = (v.find("true") != std::string::npos);
     }
 }
 

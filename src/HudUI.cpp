@@ -10,6 +10,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <string>
+
+#include <Windows.h>   // GetAsyncKeyState (Shift held)
 
 namespace {
     std::array<std::array<ImGuiMCP::ImTextureID, 9>, 2> g_arousalTex{};
@@ -62,6 +65,41 @@ namespace {
         return 0.5f * (1.0f - std::cos(3.14159265f * t / 2.0f));
     }
 
+    // --Claude 2026-07-25: Shift + crosshair NPC (out of combat / no menu) peeks
+    // that NPC's arousal on the widget for 5s, then reverts to the player. NPC
+    // arousal comes from the same OSLArousedNative.GetArousalNoSideEffects native
+    // (works on any actor), read async via ArousalReader::ReadActorArousal.
+    std::chrono::steady_clock::time_point g_npcShowUntil{};
+    std::string                           g_npcName;
+
+    RE::Actor* CrosshairNpc() {
+        auto* cd = RE::CrosshairPickData::GetSingleton();
+        if (!cd) return nullptr;
+        RE::NiPointer<RE::TESObjectREFR> refr = cd->targetActor.get();
+        if (!refr) refr = cd->target.get();
+        if (!refr) return nullptr;
+        auto* a = skyrim_cast<RE::Actor*>(refr.get());
+        if (!a || a->IsDead()) return nullptr;
+        if (a == static_cast<RE::Actor*>(RE::PlayerCharacter::GetSingleton())) return nullptr;
+        return a;
+    }
+
+    // Called each frame; while Shift is held over a valid NPC, (re)start the 5s
+    // window and fire an async read of that NPC's arousal.
+    void NpcProbe() {
+        if ((::GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0) return;
+        auto* pc = RE::PlayerCharacter::GetSingleton();
+        if (!pc || pc->IsInCombat()) return;
+        if (auto* ui = RE::UI::GetSingleton(); ui && ui->GameIsPaused()) return;
+        RE::Actor* npc = CrosshairNpc();
+        if (!npc) return;
+        ArousalReader::ReadActorArousal(npc);
+        if (const char* n = npc->GetDisplayFullName()) g_npcName = n;
+        g_npcShowUntil = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    }
+
+    bool NpcShowActive() { return std::chrono::steady_clock::now() < g_npcShowUntil; }
+
     constexpr float kArousalNativeW = 100.0f;
     constexpr float kArousalNativeH = 100.0f;
     constexpr float kRefFontSize    = 16.0f;
@@ -93,14 +131,27 @@ namespace {
     void __stdcall RenderArousal() {
         if (!g_loaded) return;
         if (!Visibility::ShouldRender()) return;
-        auto val = ArousalReader::GetArousalCached();
-        if (!val) return;
         Settings::ArousalConfig cfg;
         { auto lk = Settings::Lock(); cfg = Settings::Get().arousal; }
         if (!cfg.enabled) return;
 
+        // --Claude: Shift + crosshair NPC → show that NPC's arousal for 5s.
+        bool showNpc = false;
+        int  displayVal = 0;
+        if (cfg.npcCrosshair) {
+            NpcProbe();
+            if (NpcShowActive()) {
+                if (auto nv = ArousalReader::GetNpcArousalCached()) { displayVal = *nv; showNpc = true; }
+            }
+        }
+        if (!showNpc) {
+            auto val = ArousalReader::GetArousalCached();
+            if (!val) return;
+            displayVal = *val;
+        }
+
         const int set   = (cfg.imageSet == 1) ? 1 : 0;
-        const int level = LevelFromValue(*val);
+        const int level = LevelFromValue(displayVal);
         ImGuiMCP::ImTextureID tex = g_arousalTex[set][level];
         if (!tex) return;
 
@@ -122,7 +173,8 @@ namespace {
             }
 
             // Advanced Nudity flash overlays — one layer per flashed region.
-            if (cfg.anOverlays && g_anAvailable) {
+            // Player-only (they read the player's factions); skip while peeking an NPC.
+            if (!showNpc && cfg.anOverlays && g_anAvailable) {
                 RefreshANStates();
                 for (const auto& o : g_an) {
                     if (!o.active) continue;
@@ -133,7 +185,11 @@ namespace {
 
             if (cfg.showText) {
                 ImGuiMCP::SetWindowFontScale(cfg.textSizePx / kRefFontSize);
-                ImGuiMCP::Text("%d%%", *val);
+                ImGuiMCP::Text("%d%%", displayVal);
+                // When peeking an NPC, label whose arousal this is.
+                if (showNpc && !g_npcName.empty()) {
+                    ImGuiMCP::Text("%s", g_npcName.c_str());
+                }
                 ImGuiMCP::SetWindowFontScale(1.0f);
             }
         }

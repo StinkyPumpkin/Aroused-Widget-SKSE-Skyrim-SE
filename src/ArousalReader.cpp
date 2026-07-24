@@ -43,17 +43,21 @@ namespace {
         const char*       _tag;
     };
 
-    // Async dispatch of OSLArousedNative.<fn>(player) -> float into dst.
-    void DispatchFloatGet(const char* fn, std::atomic<int>& dst) {
+    // Async dispatch of OSLArousedNative.<fn>(actor) -> float into dst.
+    void DispatchFloatGetActor(const char* fn, RE::Actor* actor, std::atomic<int>& dst) {
         auto* vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
-        if (!vm) return;
-        auto* pc = RE::PlayerCharacter::GetSingleton();
-        if (!pc) return;
-
-        auto args = RE::MakeFunctionArguments(static_cast<RE::Actor*>(pc));
+        if (!vm || !actor) return;
+        auto args = RE::MakeFunctionArguments(std::move(actor));
         RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> cb(new FloatToAtomicCallback(dst, fn));
         vm->DispatchStaticCall("OSLArousedNative"sv, fn, args, cb);
     }
+
+    // Player convenience.
+    void DispatchFloatGet(const char* fn, std::atomic<int>& dst) {
+        DispatchFloatGetActor(fn, RE::PlayerCharacter::GetSingleton(), dst);
+    }
+
+    std::atomic<int> g_npcArousal{ -1 };
 }
 
 namespace ArousalReader {
@@ -88,6 +92,17 @@ namespace ArousalReader {
 
     std::optional<int> GetExposureCached() {
         int v = g_exposure.load(std::memory_order_relaxed);
+        if (v < 0) return std::nullopt;
+        return v;
+    }
+
+    void ReadActorArousal(RE::Actor* a_actor) {
+        if (g_source == Source::None || !a_actor) return;
+        DispatchFloatGetActor("GetArousalNoSideEffects", a_actor, g_npcArousal);
+    }
+
+    std::optional<int> GetNpcArousalCached() {
+        int v = g_npcArousal.load(std::memory_order_relaxed);
         if (v < 0) return std::nullopt;
         return v;
     }
