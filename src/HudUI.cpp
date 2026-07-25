@@ -65,12 +65,14 @@ namespace {
         return 0.5f * (1.0f - std::cos(3.14159265f * t / 2.0f));
     }
 
-    // --Claude 2026-07-25: Shift + crosshair NPC (out of combat / no menu) peeks
-    // that NPC's arousal on the widget for 5s, then reverts to the player. NPC
-    // arousal comes from the same OSLArousedNative.GetArousalNoSideEffects native
-    // (works on any actor), read async via ArousalReader::ReadActorArousal.
-    std::chrono::steady_clock::time_point g_npcShowUntil{};
+    // --Claude 2026-07-25: TAP-TO-LATCH NPC arousal peek. Shift + crosshair on an
+    // NPC latches to it and shows its arousal on the widget; it keeps showing
+    // (Shift can be released) until you LOOK AWAY (crosshair leaves that NPC),
+    // then reverts to the player. NPC arousal = OSLArousedNative.GetArousalNoSideEffects
+    // (works on any actor), read async + throttled via ArousalReader::ReadActorArousal.
+    RE::FormID                            g_latchNpc = 0;
     std::string                           g_npcName;
+    std::chrono::steady_clock::time_point g_npcNextRead{};
 
     RE::Actor* CrosshairNpc() {
         auto* cd = RE::CrosshairPickData::GetSingleton();
@@ -84,21 +86,34 @@ namespace {
         return a;
     }
 
-    // Called each frame; while Shift is held over a valid NPC, (re)start the 5s
-    // window and fire an async read of that NPC's arousal.
     void NpcProbe() {
-        if ((::GetAsyncKeyState(VK_SHIFT) & 0x8000) == 0) return;
+        RE::Actor* cross = nullptr;
         auto* pc = RE::PlayerCharacter::GetSingleton();
-        if (!pc || pc->IsInCombat()) return;
-        if (auto* ui = RE::UI::GetSingleton(); ui && ui->GameIsPaused()) return;
-        RE::Actor* npc = CrosshairNpc();
-        if (!npc) return;
-        ArousalReader::ReadActorArousal(npc);
-        if (const char* n = npc->GetDisplayFullName()) g_npcName = n;
-        g_npcShowUntil = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        auto* ui = RE::UI::GetSingleton();
+        const bool gameplay = pc && !pc->IsInCombat() && !(ui && ui->GameIsPaused());
+        if (gameplay) cross = CrosshairNpc();
+
+        // Shift + crosshair NPC -> latch to it.
+        if (gameplay && cross && (::GetAsyncKeyState(VK_SHIFT) & 0x8000)) {
+            g_latchNpc = cross->GetFormID();
+        }
+
+        if (g_latchNpc) {
+            // Still looking at the latched NPC? keep showing + refresh (throttled).
+            if (cross && cross->GetFormID() == g_latchNpc) {
+                const auto now = std::chrono::steady_clock::now();
+                if (now >= g_npcNextRead) {
+                    ArousalReader::ReadActorArousal(cross);
+                    if (const char* n = cross->GetDisplayFullName()) g_npcName = n;
+                    g_npcNextRead = now + std::chrono::milliseconds(400);
+                }
+            } else {
+                g_latchNpc = 0;   // looked away -> revert to player
+            }
+        }
     }
 
-    bool NpcShowActive() { return std::chrono::steady_clock::now() < g_npcShowUntil; }
+    bool NpcShowActive() { return g_latchNpc != 0; }
 
     constexpr float kArousalNativeW = 100.0f;
     constexpr float kArousalNativeH = 100.0f;
