@@ -11,7 +11,7 @@ A lightweight on-screen **arousal widget** for Skyrim SE/AE, made for **OSL Arou
 - Fully positionable and scalable in-game — no config-file editing
 - Text scales with the widget
 - Auto-hides with the compass (follows iHUD / Sandbox-When-Idle fades)
-- iHUD‑Claude **Smart Hide** integration (hide, restore, or self-show above an arousal threshold) - not yet released
+- iHUD‑Claude **Smart Hide** integration (hide, restore, or self-show above an arousal threshold) - ihudclaude not yet released
 - Toggle hotkey
 - Settings and position saved per profile (JSON)
 - Pure SKSE C++ — no Papyrus, no scripts
