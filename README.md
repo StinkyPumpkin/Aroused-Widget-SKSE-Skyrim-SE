@@ -2,8 +2,6 @@
 
 A lightweight on-screen **arousal widget** for Skyrim SE/AE, made for **OSL Aroused**. It shows the player's current arousal as a scalable icon + numeric percentage, rendered as an ImGui overlay via **SKSE Menu Framework** — no Papyrus, no scripts, fully configurable in-game.
 
-> The repository name still says "Prisma" for historical reasons — an early PrismaUI direction that was dropped. The shipping mod is the SKSE Menu Framework (ImGui) widget described here.
-
 ## Features
 
 - On-screen arousal widget (icon + numeric %)
@@ -13,7 +11,7 @@ A lightweight on-screen **arousal widget** for Skyrim SE/AE, made for **OSL Arou
 - Fully positionable and scalable in-game — no config-file editing
 - Text scales with the widget
 - Auto-hides with the compass (follows iHUD / Sandbox-When-Idle fades)
-- iHUD‑Claude **Smart Hide** integration (hide, restore, or self-show above an arousal threshold)
+- iHUD‑Claude **Smart Hide** integration (hide, restore, or self-show above an arousal threshold) - not yet released
 - Toggle hotkey
 - Settings and position saved per profile (JSON)
 - Pure SKSE C++ — no Papyrus, no scripts
