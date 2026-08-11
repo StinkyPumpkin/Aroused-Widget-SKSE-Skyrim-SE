@@ -10,10 +10,15 @@ namespace fs = std::filesystem;
 namespace JsonStore {
 
     std::string GetStatePath() {
-        fs::path p = fs::current_path() / "Data" / "SKSE" / "Plugins" / "ArousedWidgetClaude";
+        fs::path p = fs::current_path() / "Data" / "SKSE" / "Plugins" / "ArousedWidget";
         std::error_code ec;
         fs::create_directories(p, ec);
         p /= "config.json";
+        // One-time migration from the pre-0.3 "ArousedWidgetClaude" folder.
+        if (!fs::exists(p, ec)) {
+            fs::path old = fs::current_path() / "Data" / "SKSE" / "Plugins" / "ArousedWidgetClaude" / "config.json";
+            if (fs::exists(old, ec)) fs::copy_file(old, p, ec);
+        }
         return p.string();
     }
 

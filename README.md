@@ -40,7 +40,7 @@ Open the SKSE Menu Framework overlay → **Aroused Widget** section:
 - Poll cadence
 - "Follow compass hide" (auto-hide with the vanilla compass)
 
-Settings persist to `Data/SKSE/Plugins/ArousedWidgetClaude/` per profile.
+Settings persist to `Data/SKSE/Plugins/ArousedWidget/` per profile.
 
 ## Building (developers)
 
