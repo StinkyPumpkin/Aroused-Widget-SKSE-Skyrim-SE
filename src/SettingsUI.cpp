@@ -16,7 +16,7 @@ namespace {
         if (ImGuiMCP::SliderFloat(("X" + s).c_str(),               &w.x,            0.0f, 3840.0f, "%.0f"))        dirty = true;
         if (ImGuiMCP::SliderFloat(("Y" + s).c_str(),               &w.y,            0.0f, 2160.0f, "%.0f"))        dirty = true;
         if (ImGuiMCP::SliderFloat(("Icon height (px)" + s).c_str(),&w.iconHeightPx, 16.0f, maxIconHeight, "%.0f")) dirty = true;
-        if (ImGuiMCP::SliderFloat(("Text size (px)" + s).c_str(),  &w.textSizePx,   8.0f, 64.0f, "%.0f"))          dirty = true;
+        if (ImGuiMCP::SliderFloat(("Text size (px)" + s).c_str(),  &w.textSizePx,   8.0f, 128.0f, "%.0f"))         dirty = true;
         return dirty;
     }
 
@@ -25,7 +25,7 @@ namespace {
         { auto lk = Settings::Lock(); cfg = Settings::Get(); }
         bool dirty = false;
 
-        dirty |= DrawCommonControls("Arousal", cfg.arousal, /*maxIconHeight*/ 256.0f);
+        dirty |= DrawCommonControls("Arousal", cfg.arousal, /*maxIconHeight*/ 1024.0f);
         const char* sets[] = { "Aroused (heart)", "Exposure (drop)" };
         if (ImGuiMCP::Combo("Image set##Arousal", &cfg.arousal.imageSet, sets, 2)) dirty = true;
         if (ImGuiMCP::Checkbox("Glow pulse at max arousal##Arousal", &cfg.arousal.glowPulse)) dirty = true;
