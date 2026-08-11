@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 # Renamed 2026-08-11: ArousedWidgetClaude -> ArousedWidget for Nexus release.
 # DLL name and SKSE-registered plugin name both follow the project name.
 # iHUDClaude's ArousedWidgetBridge kReceiver must match this name.
-project(ArousedWidget VERSION 0.3.0 LANGUAGES CXX)
+project(ArousedWidget VERSION 0.3.1 LANGUAGES CXX)
 
 # Output to MO2 mods folder
 if(DEFINED ENV{SKYRIM_MODS_FOLDER} AND IS_DIRECTORY "$ENV{SKYRIM_MODS_FOLDER}")

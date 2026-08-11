@@ -130,7 +130,10 @@ namespace {
         | ImGuiMCP::ImGuiWindowFlags_NoInputs
         | ImGuiMCP::ImGuiWindowFlags_NoFocusOnAppearing
         | ImGuiMCP::ImGuiWindowFlags_NoNav
-        | ImGuiMCP::ImGuiWindowFlags_NoDocking;
+        | ImGuiMCP::ImGuiWindowFlags_NoDocking
+        // Without this the window keeps its first-frame size (fitted to the default
+        // 64px icon) and larger icon settings get clipped at the window edge.
+        | ImGuiMCP::ImGuiWindowFlags_AlwaysAutoResize;
 
     int LevelFromValue(int v) {
         if (v <= 0) return 0;
