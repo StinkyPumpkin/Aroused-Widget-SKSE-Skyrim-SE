@@ -15,7 +15,9 @@
 #include <Windows.h>   // GetAsyncKeyState (Shift held)
 
 namespace {
-    std::array<std::array<ImGuiMCP::ImTextureID, 9>, 2> g_arousalTex{};
+    // v0.3.2: exposure image set removed — no exposure art ships, and picking it
+    // left the widget invisible (null textures). Single aroused set only.
+    std::array<ImGuiMCP::ImTextureID, 9> g_arousalTex{};
     bool g_loaded = false;
 
     // --Claude 2026-07-24: max-arousal glow stage (aroused9.dds) — crossfaded over
@@ -168,9 +170,8 @@ namespace {
             displayVal = *val;
         }
 
-        const int set   = (cfg.imageSet == 1) ? 1 : 0;
         const int level = LevelFromValue(displayVal);
-        ImGuiMCP::ImTextureID tex = g_arousalTex[set][level];
+        ImGuiMCP::ImTextureID tex = g_arousalTex[level];
         if (!tex) return;
 
         ImGuiMCP::SetNextWindowPos({ cfg.x, cfg.y },
@@ -184,7 +185,7 @@ namespace {
             // pulses on top: aroused9 fully covers aroused8 at weight 1, so layering
             // reads as a clean crossfade with no mid-fade translucency dip.
             ImGuiMCP::Image(tex, size);
-            if (cfg.glowPulse && set == 0 && level == 8 && g_glowTex) {
+            if (cfg.glowPulse && level == 8 && g_glowTex) {
                 ImGuiMCP::SetCursorPos(basePos);
                 ImGuiMCP::Image(g_glowTex, size, { 0, 0 }, { 1, 1 },
                                 { 1.0f, 1.0f, 1.0f, GlowAlpha() });
@@ -234,13 +235,10 @@ namespace HudUI {
             // user's separate "SexLab Widgets--Claude" mod folder under that
             // path. Internal-only; not user-visible.
             std::snprintf(p, sizeof(p), "Data/Interface/HUDWidgets/aroused/aroused%d.dds", i);
-            g_arousalTex[0][i] = SKSEMenuFramework::LoadTexture(p);
-            if (g_arousalTex[0][i]) ++loaded;
-            std::snprintf(p, sizeof(p), "Data/Interface/HUDWidgets/exposure/exp%d.dds", i);
-            g_arousalTex[1][i] = SKSEMenuFramework::LoadTexture(p);
-            if (g_arousalTex[1][i]) ++loaded;
+            g_arousalTex[i] = SKSEMenuFramework::LoadTexture(p);
+            if (g_arousalTex[i]) ++loaded;
         }
-        SKSE::log::info("HudUI::Register - loaded {}/18 textures", loaded);
+        SKSE::log::info("HudUI::Register - loaded {}/9 textures", loaded);
 
         // --Claude: max-arousal glow stage (optional — absent file just disables the pulse)
         g_glowTex = SKSEMenuFramework::LoadTexture("Data/Interface/HUDWidgets/aroused/aroused9.dds");

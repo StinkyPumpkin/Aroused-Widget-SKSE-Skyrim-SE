@@ -79,7 +79,7 @@ namespace {
             log->flush_on(spdlog::level::info);
             spdlog::set_default_logger(std::move(log));
             spdlog::set_pattern("[%H:%M:%S.%e] [%l] %v");
-            SKSE::log::info("ArousedWidget v0.3.1 - logging initialized at {}", logPath.string());
+            SKSE::log::info("ArousedWidget v0.3.2 - logging initialized at {}", logPath.string());
             WriteStartupMarker("spdlog-init-ok", logPath.string());
         } catch (const std::exception& e) {
             WriteStartupMarker("spdlog-init-FAILED", std::string{e.what()} + " | path=" + logPath.string());
