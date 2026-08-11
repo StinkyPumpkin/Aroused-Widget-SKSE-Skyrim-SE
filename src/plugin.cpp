@@ -29,7 +29,7 @@ namespace {
             fs::path p = fs::current_path() / "Data" / "SKSE" / "Plugins";
             std::error_code ec;
             fs::create_directories(p, ec);
-            p /= "ArousedWidgetClaude-startup.log";
+            p /= "ArousedWidget-startup.log";
             std::ofstream f(p, std::ios::app);
             const auto t = std::time(nullptr);
             f << t << " [" << phase << "]";
@@ -70,7 +70,7 @@ namespace {
         std::error_code ec;
         std::filesystem::create_directories(logPath, ec);
 
-        logPath /= "ArousedWidgetClaude.log";
+        logPath /= "ArousedWidget.log";
 
         try {
             auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logPath.string(), true);
@@ -79,7 +79,7 @@ namespace {
             log->flush_on(spdlog::level::info);
             spdlog::set_default_logger(std::move(log));
             spdlog::set_pattern("[%H:%M:%S.%e] [%l] %v");
-            SKSE::log::info("ArousedWidgetClaude v0.3.0 - logging initialized at {}", logPath.string());
+            SKSE::log::info("ArousedWidget v0.3.0 - logging initialized at {}", logPath.string());
             WriteStartupMarker("spdlog-init-ok", logPath.string());
         } catch (const std::exception& e) {
             WriteStartupMarker("spdlog-init-FAILED", std::string{e.what()} + " | path=" + logPath.string());
@@ -123,7 +123,7 @@ namespace {
 SKSEPluginLoad(const SKSE::LoadInterface* skse) {
     WriteStartupMarker("SKSEPluginLoad-enter");
     InitializeLogging();
-    SKSE::log::info("ArousedWidgetClaude loading...");
+    SKSE::log::info("ArousedWidget loading...");
     SKSE::Init(skse);
 
     auto* mi = SKSE::GetMessagingInterface();
@@ -132,7 +132,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse) {
         WriteStartupMarker("listener-register-FAILED");
         return false;
     }
-    SKSE::log::info("ArousedWidgetClaude loaded");
+    SKSE::log::info("ArousedWidget loaded");
     WriteStartupMarker("SKSEPluginLoad-return-true");
     return true;
 }
