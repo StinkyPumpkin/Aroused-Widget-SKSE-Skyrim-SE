@@ -40,9 +40,9 @@ namespace {
 
     // Build the canonical SKSE log path manually. We don't use
     // SKSE::log::log_directory() because in our environment it resolves to
-    // F:\Documents\My Games\Skyrim.INI\SKSE — the INI filename instead of the
+    // Documents\My Games\Skyrim.INI\SKSE — the INI filename instead of the
     // runtime directory name. Other plugins (PapyrusUtilDev, mfgfix, etc.)
-    // log to F:\Documents\My Games\Skyrim Special Edition\SKSE so we target
+    // log to Documents\My Games\Skyrim Special Edition\SKSE so we target
     // the same place ourselves.
     std::filesystem::path ResolveLogDirectory() {
         wchar_t* docs = nullptr;
