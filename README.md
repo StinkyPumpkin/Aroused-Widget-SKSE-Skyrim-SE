@@ -1,5 +1,7 @@
 # OSL Aroused Widget
 
+# Nexus Page - [OSL Aroused Widget](https://www.nexusmods.com/games/skyrimspecialedition/mods/185786)
+
 A lightweight on-screen **arousal widget** for Skyrim SE/AE, made for **OSL Aroused**. It shows the player's current arousal as a scalable icon + numeric percentage, rendered as an ImGui overlay via **SKSE Menu Framework** — no Papyrus, no scripts, fully configurable in-game.
 
 ## Features
