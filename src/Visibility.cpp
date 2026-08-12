@@ -5,6 +5,7 @@
 #include <RE/G/GFxMovieView.h>
 #include <RE/G/GFxValue.h>
 #include <RE/P/PlayerCamera.h>
+#include <RE/P/PlayerCharacter.h>
 #include <RE/U/UI.h>
 
 #include <atomic>
@@ -159,6 +160,12 @@ namespace Visibility {
         if (!ui) return true;
 
         if (ui->GameIsPaused()) return false;
+
+        // Load screens: the menu-name/pause checks below can miss transitions
+        // (field report: widget visible during a loading screen). The player's
+        // 3D is unloaded during every load — a reliable catch-all.
+        auto* player = RE::PlayerCharacter::GetSingleton();
+        if (!player || !player->Is3DLoaded()) return false;
 
         // Verified against CommonLibSSE-NG MENU_NAME constants. Note: spaces
         // and capitalisation are wildly inconsistent in Bethesda's naming.
