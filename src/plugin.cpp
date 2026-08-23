@@ -79,7 +79,7 @@ namespace {
             log->flush_on(spdlog::level::info);
             spdlog::set_default_logger(std::move(log));
             spdlog::set_pattern("[%H:%M:%S.%e] [%l] %v");
-            SKSE::log::info("ArousedWidget v0.3.2 - logging initialized at {}", logPath.string());
+            SKSE::log::info("ArousedWidget v0.3.3 - logging initialized at {}", logPath.string());
             WriteStartupMarker("spdlog-init-ok", logPath.string());
         } catch (const std::exception& e) {
             WriteStartupMarker("spdlog-init-FAILED", std::string{e.what()} + " | path=" + logPath.string());
@@ -115,6 +115,15 @@ namespace {
             WidgetController::Start();
             g_saveRunning.store(true);
             g_saveThread = std::thread(SaveLoop);
+            break;
+
+        // v0.3.3 (Nexus report "sometimes missing at start"): the kDataLoaded refresh runs at
+        // the MAIN MENU where arousal frameworks have no player data, and the next poll could
+        // be a full cadence away — leaving the widget blank for seconds after loading in.
+        // Refresh immediately whenever a save is loaded or a new game starts.
+        case SKSE::MessagingInterface::kPostLoadGame:
+        case SKSE::MessagingInterface::kNewGame:
+            ArousalReader::Refresh();
             break;
         }
     }

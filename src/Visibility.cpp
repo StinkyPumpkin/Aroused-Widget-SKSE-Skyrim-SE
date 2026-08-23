@@ -170,6 +170,10 @@ namespace Visibility {
         // Verified against CommonLibSSE-NG MENU_NAME constants. Note: spaces
         // and capitalisation are wildly inconsistent in Bethesda's naming.
         static constexpr const char* kBlockMenus[] = {
+            // v0.3.3: Fader/Mist/LoadWaitSpinner cover the load-adjacent transitions the
+            // Loading Menu check alone misses (field report: widget visible during loads).
+            "Fader Menu",       "Mist Menu",
+            "LoadWaitSpinner",
             "Main Menu",        "Loading Menu",
             "Console",          "MessageBoxMenu",
             "Crafting Menu",    "BarterMenu",
