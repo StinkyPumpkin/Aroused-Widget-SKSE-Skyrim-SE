@@ -9,7 +9,7 @@ namespace RE { class Actor; }
 // and reads the cached value via GetArousalCached() / GetExposureCached().
 namespace ArousalReader {
 
-    enum class Source : std::uint8_t { None, OSLAroused, LegacySLA };
+    enum class Source : std::uint8_t { None, OSLAroused, LegacySLA, SLANG };
 
     void   Detect();          // call from kDataLoaded
     Source Active();

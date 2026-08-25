@@ -10,6 +10,8 @@
 #include <atomic>
 #include <optional>
 
+#include <Windows.h>
+
 namespace {
     ArousalReader::Source g_source = ArousalReader::Source::None;
 
@@ -43,18 +45,18 @@ namespace {
         const char*       _tag;
     };
 
-    // Async dispatch of OSLArousedNative.<fn>(actor) -> float into dst.
-    void DispatchFloatGetActor(const char* fn, RE::Actor* actor, std::atomic<int>& dst) {
+    // Async dispatch of <cls>.<fn>(actor) -> float into dst.
+    void DispatchFloatGetActor(std::string_view cls, const char* fn, RE::Actor* actor, std::atomic<int>& dst) {
         auto* vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
         if (!vm || !actor) return;
         auto args = RE::MakeFunctionArguments(std::move(actor));
         RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor> cb(new FloatToAtomicCallback(dst, fn));
-        vm->DispatchStaticCall("OSLArousedNative"sv, fn, args, cb);
+        vm->DispatchStaticCall(RE::BSFixedString(cls), fn, args, cb);
     }
 
     // Player convenience.
-    void DispatchFloatGet(const char* fn, std::atomic<int>& dst) {
-        DispatchFloatGetActor(fn, RE::PlayerCharacter::GetSingleton(), dst);
+    void DispatchFloatGet(std::string_view cls, const char* fn, std::atomic<int>& dst) {
+        DispatchFloatGetActor(cls, fn, RE::PlayerCharacter::GetSingleton(), dst);
     }
 
     std::atomic<int> g_npcArousal{ -1 };
@@ -65,6 +67,11 @@ namespace ArousalReader {
     void Detect() {
         if (HasPlugin("OAroused.esp") || HasPlugin("OSLAroused.esp")) {
             g_source = Source::OSLAroused;
+        } else if (::GetModuleHandleA("SexlabArousedNG.dll")) {
+            // SexLab Aroused NG (crajjjj) — native SLA rewrite. Ships the same
+            // SexLabAroused.esm as legacy SLA, so probe its DLL before the esm
+            // check. Its global natives live on slaInternalModules.
+            g_source = Source::SLANG;
         } else if (HasPlugin("SexLabAroused.esm") || HasPlugin("SexLabArousedRedux.esp")) {
             // OSL Aroused 2.x ships SexLabAroused.esm too as the SLA-mode shim.
             // If only the .esm is present without OAroused/OSLAroused, we're on legacy SLA.
@@ -78,10 +85,21 @@ namespace ArousalReader {
     Source Active() { return g_source; }
 
     void Refresh() {
-        if (g_source == Source::None) return;
-        // OSLArousedNative covers both OSL and SLA modes (it ships the slaUtil shim).
-        DispatchFloatGet("GetArousalNoSideEffects", g_arousal);
-        DispatchFloatGet("GetExposure",             g_exposure);
+        switch (g_source) {
+        case Source::OSLAroused:
+        case Source::LegacySLA:
+            // OSLArousedNative covers both OSL and SLA modes (it ships the slaUtil shim).
+            DispatchFloatGet("OSLArousedNative", "GetArousalNoSideEffects", g_arousal);
+            DispatchFloatGet("OSLArousedNative", "GetExposure",             g_exposure);
+            break;
+        case Source::SLANG:
+            // SLA NG global native: float slaInternalModules.GetArousal(Actor).
+            // No exposure getter exists in its API — exposure stays absent.
+            DispatchFloatGet("slaInternalModules", "GetArousal", g_arousal);
+            break;
+        default:
+            break;
+        }
     }
 
     std::optional<int> GetArousalCached() {
@@ -98,7 +116,11 @@ namespace ArousalReader {
 
     void ReadActorArousal(RE::Actor* a_actor) {
         if (g_source == Source::None || !a_actor) return;
-        DispatchFloatGetActor("GetArousalNoSideEffects", a_actor, g_npcArousal);
+        if (g_source == Source::SLANG) {
+            DispatchFloatGetActor("slaInternalModules", "GetArousal", a_actor, g_npcArousal);
+        } else {
+            DispatchFloatGetActor("OSLArousedNative", "GetArousalNoSideEffects", a_actor, g_npcArousal);
+        }
     }
 
     std::optional<int> GetNpcArousalCached() {

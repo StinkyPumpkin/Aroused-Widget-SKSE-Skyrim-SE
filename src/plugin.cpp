@@ -6,8 +6,11 @@
 #include "WidgetController.h"
 #include "iHUDBridge.h"
 
+#include <REL/Relocation.h>
+
 #include <spdlog/sinks/basic_file_sink.h>
 #include <atomic>
+#include <format>
 #include <chrono>
 #include <ctime>
 #include <filesystem>
@@ -79,7 +82,7 @@ namespace {
             log->flush_on(spdlog::level::info);
             spdlog::set_default_logger(std::move(log));
             spdlog::set_pattern("[%H:%M:%S.%e] [%l] %v");
-            SKSE::log::info("ArousedWidget v0.3.3 - logging initialized at {}", logPath.string());
+            SKSE::log::info("ArousedWidget v0.3.4 - logging initialized at {}", logPath.string());
             WriteStartupMarker("spdlog-init-ok", logPath.string());
         } catch (const std::exception& e) {
             WriteStartupMarker("spdlog-init-FAILED", std::string{e.what()} + " | path=" + logPath.string());
@@ -98,10 +101,47 @@ namespace {
         }
     }
 
+    bool g_addressLibraryMissing = false;
+
+    // v0.3.4 (1.5.97 "game will not start" report): CommonLib fatally terminates the
+    // game with a cryptic popup when the Address Library .bin for the RUNNING runtime
+    // is absent (e.g. 1.5.97 users who installed only the AE edition). Check for the
+    // file ourselves before any REL-dependent call; if missing, disable the widget and
+    // tell the user exactly what to install instead of taking the game down.
+    bool CheckAddressLibrary() {
+        const auto ver = REL::Module::get().version();
+        std::string file;
+        if (ver.major() == 1 && ver.minor() < 6) {
+            file = std::format("Data/SKSE/Plugins/version-{}-{}-{}-{}.bin",
+                               ver.major(), ver.minor(), ver.patch(), ver.build());
+        } else {
+            file = std::format("Data/SKSE/Plugins/versionlib-{}-{}-{}-{}.bin",
+                               ver.major(), ver.minor(), ver.patch(), ver.build());
+        }
+        std::error_code ec;
+        if (std::filesystem::exists(std::filesystem::current_path() / file, ec)) {
+            return true;
+        }
+        g_addressLibraryMissing = true;
+        SKSE::log::error("Address Library file missing for runtime {}.{}.{}.{} ({}) - widget disabled",
+                         ver.major(), ver.minor(), ver.patch(), ver.build(), file);
+        const std::string text = std::format(
+            "Aroused Widget: the Address Library file for your game version "
+            "({}.{}.{}.{}) is not installed, so the widget has been disabled.\n\n"
+            "Install \"Address Library for SKSE Plugins\" and pick the edition that "
+            "matches your game (1.5.x = SE edition, 1.6.x = AE edition).\n\n"
+            "The game will continue to run normally.",
+            ver.major(), ver.minor(), ver.patch(), ver.build());
+        ::MessageBoxA(nullptr, text.c_str(), "Aroused Widget", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
     void MessageCallback(SKSE::MessagingInterface::Message* msg) {
+        if (g_addressLibraryMissing) return;
         switch (msg->type) {
         case SKSE::MessagingInterface::kPostLoad:
             SKSE::log::info("kPostLoad - registering MCP sections + iHUD bridge");
+            if (!CheckAddressLibrary()) return;
             Settings::Load();
             SettingsUI::Register();
             iHUDBridge::Register();
