@@ -164,7 +164,8 @@ namespace Visibility {
         // v0.3.5 (Nexus request): follow the game's own "show menus" flag. This is what
         // the `tm` console command and po3's Photo Mode "Hide UI" flip (UI::ShowMenus);
         // it hides every Scaleform menu but not an ImGui overlay, so mirror it here.
-        if (!ui->IsShowingMenus()) return false;
+        // VR has no Photo Mode and its UI runtime data differs; keep the gate SE/AE-only.
+        if (!REL::Module::IsVR() && !ui->IsShowingMenus()) return false;
 
         // Load screens: the menu-name/pause checks below can miss transitions
         // (field report: widget visible during a loading screen). The player's

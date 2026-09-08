@@ -110,13 +110,16 @@ namespace {
     // tell the user exactly what to install instead of taking the game down.
     bool CheckAddressLibrary() {
         const auto ver = REL::Module::get().version();
+        // Same file CommonLib's IDDatabase::load() opens: VR reads a .csv, AE a versionlib .bin,
+        // SE a version .bin. (0.3.4-0.3.5 looked for a .bin on VR too, so every VR user got the
+        // "Address Library missing" popup and a disabled widget - 0.3.6 fix.)
         std::string file;
-        if (ver.major() == 1 && ver.minor() < 6) {
-            file = std::format("Data/SKSE/Plugins/version-{}-{}-{}-{}.bin",
-                               ver.major(), ver.minor(), ver.patch(), ver.build());
+        if (REL::Module::IsVR()) {
+            file = std::format("Data/SKSE/Plugins/version-{}.csv", ver.string());
+        } else if (REL::Module::IsAE()) {
+            file = std::format("Data/SKSE/Plugins/versionlib-{}.bin", ver.string());
         } else {
-            file = std::format("Data/SKSE/Plugins/versionlib-{}-{}-{}-{}.bin",
-                               ver.major(), ver.minor(), ver.patch(), ver.build());
+            file = std::format("Data/SKSE/Plugins/version-{}.bin", ver.string());
         }
         std::error_code ec;
         if (std::filesystem::exists(std::filesystem::current_path() / file, ec)) {
@@ -129,7 +132,7 @@ namespace {
             "Aroused Widget: the Address Library file for your game version "
             "({}.{}.{}.{}) is not installed, so the widget has been disabled.\n\n"
             "Install \"Address Library for SKSE Plugins\" and pick the edition that "
-            "matches your game (1.5.x = SE edition, 1.6.x = AE edition).\n\n"
+            "matches your game (1.5.x = SE, 1.6.x / 1.7.x = AE, VR = the VR Address Library).\n\n"
             "The game will continue to run normally.",
             ver.major(), ver.minor(), ver.patch(), ver.build());
         ::MessageBoxA(nullptr, text.c_str(), "Aroused Widget", MB_OK | MB_ICONWARNING);
