@@ -2,6 +2,7 @@
 
 #include "ArousalReader.h"
 #include "Settings.h"
+#include "Visibility.h"
 
 #include <atomic>
 #include <chrono>
@@ -32,6 +33,9 @@ namespace {
                 ArousalReader::Refresh();
                 next_arousal = now + seconds(cadence);
             }
+            // v0.3.7: compass-follow state is read on the MAIN thread via an SKSE task
+            // (Scaleform GetVariable from the render hook crashed - see Visibility.cpp).
+            Visibility::QueueCompassPoll();
             std::this_thread::sleep_for(250ms);
         }
         SKSE::log::info("WidgetController loop stopped");
