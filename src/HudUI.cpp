@@ -117,6 +117,19 @@ namespace {
 
     bool NpcShowActive() { return g_latchNpc != 0; }
 
+    // --Claude 2026-09-12: TDF Enhanced Prostitution auto-whoring indicator.
+    // State = GlobalVariable BB_PlayerAutoWhoreEnabled (0x000BF7 in TDF Enhanced
+    // Prostitution.esp), 1 while the hotkey/MCM has auto-whoring on. Resolved once at
+    // kDataLoaded; the render reads the global's float directly (plain field read, same
+    // class of access as the AND faction ranks above). Missing esp/texture = feature off.
+    constexpr const char* kTDFEsp      = "TDF Enhanced Prostitution.esp";
+    constexpr RE::FormID  kTDFAutoWhore = 0x000BF7;
+    RE::TESGlobal*        g_whoringGlobal = nullptr;
+    ImGuiMCP::ImTextureID g_whoringTex    = nullptr;
+    const char*           g_whoringStatus = "TDF Enhanced Prostitution: not checked yet";
+    constexpr float kWhoringNativeW = 100.0f;
+    constexpr float kWhoringNativeH = 100.0f;
+
     constexpr float kArousalNativeW = 100.0f;
     constexpr float kArousalNativeH = 100.0f;
     constexpr float kRefFontSize    = 16.0f;
@@ -214,9 +227,27 @@ namespace {
         }
         ImGuiMCP::End();
     }
+
+    void __stdcall RenderWhoring() {
+        if (!g_loaded || !g_whoringGlobal || !g_whoringTex) return;
+        if (!Visibility::ShouldRender()) return;
+        Settings::WhoringConfig cfg;
+        { auto lk = Settings::Lock(); cfg = Settings::Get().whoring; }
+        if (!cfg.enabled) return;
+        if (g_whoringGlobal->value < 0.5f) return;   // auto-whoring off -> draw nothing
+
+        ImGuiMCP::SetNextWindowPos({ cfg.x, cfg.y }, ImGuiMCP::ImGuiCond_Always, { 0, 0 });
+        bool open = true;
+        if (ImGuiMCP::Begin("##hudwidget_whoring", &open, OverlayFlags)) {
+            ImGuiMCP::Image(g_whoringTex, IconSize(kWhoringNativeW, kWhoringNativeH, cfg.iconHeightPx));
+        }
+        ImGuiMCP::End();
+    }
 }
 
 namespace HudUI {
+
+    const char* WhoringSourceStatus() { return g_whoringStatus; }
 
     void Register() {
         const bool installed = SKSEMenuFramework::IsInstalled();
@@ -259,9 +290,19 @@ namespace HudUI {
         SKSE::log::info("HudUI::Register - AND overlays ready: {}/3 (esp {})",
                         anReady, g_anAvailable ? "found" : "missing/none");
 
+        // --Claude 2026-09-12: auto-whoring indicator source + art.
+        g_whoringTex    = SKSEMenuFramework::LoadTexture("Data/Interface/HUDWidgets/aroused/whoring.dds");
+        g_whoringGlobal = dh ? dh->LookupForm<RE::TESGlobal>(kTDFAutoWhore, kTDFEsp) : nullptr;
+        if (g_whoringGlobal && g_whoringTex)      g_whoringStatus = "TDF Enhanced Prostitution.esp found - indicator active while auto-whoring is on";
+        else if (!g_whoringGlobal)                g_whoringStatus = "TDF Enhanced Prostitution.esp not installed - indicator inactive";
+        else                                      g_whoringStatus = "whoring.dds missing from Interface/HUDWidgets/aroused - indicator inactive";
+        SKSE::log::info("HudUI::Register - whoring indicator: global {} texture {}",
+                        g_whoringGlobal ? "found" : "missing", g_whoringTex ? "loaded" : "missing");
+
         g_loaded = true;
 
         SKSEMenuFramework::AddHudElement(RenderArousal);
-        SKSE::log::info("HudUI::Register - 1 HUD element registered");
+        SKSEMenuFramework::AddHudElement(RenderWhoring);
+        SKSE::log::info("HudUI::Register - 2 HUD elements registered");
     }
 }

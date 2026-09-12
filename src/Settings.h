@@ -20,8 +20,13 @@ namespace Settings {
         bool npcCrosshair = true;  // Shift + crosshair NPC -> peek their arousal for 5s
     };
 
+    // 2026-09-12: TDF Enhanced Prostitution auto-whoring indicator. A second, independently
+    // placed/scaled icon widget that shows only while BB_PlayerAutoWhoreEnabled == 1.
+    struct WhoringConfig : WidgetConfig {};
+
     struct Config {
         ArousalConfig arousal{};
+        WhoringConfig whoring{};
         int arousalCadenceSec = 5;
         // DirectInput scan code for the manual hide-toggle key.
         // 14 = Backspace (matches iHUD's typical default).
@@ -33,6 +38,8 @@ namespace Settings {
         Config() {
             arousal.x = 50.0f;  arousal.y = 50.0f;
             arousal.iconHeightPx = 64.0f; arousal.textSizePx = 18.0f;
+            whoring.x = 50.0f;  whoring.y = 130.0f;
+            whoring.iconHeightPx = 48.0f; whoring.textSizePx = 18.0f; whoring.showText = false;
         }
     };
 

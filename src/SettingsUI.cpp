@@ -1,4 +1,5 @@
 #include "SettingsUI.h"
+#include "HudUI.h"
 #include "Settings.h"
 
 #include "SKSEMenuFramework.h"
@@ -7,16 +8,16 @@
 
 namespace {
     bool DrawCommonControls(const char* label, Settings::WidgetConfig& w,
-                             float maxIconHeight) {
+                             float maxIconHeight, bool hasText = true) {
         bool dirty = false;
         const std::string s = std::string("##") + label;
         ImGuiMCP::Text("%s", label);
         if (ImGuiMCP::Checkbox(("Enabled" + s).c_str(),            &w.enabled))      dirty = true;
-        if (ImGuiMCP::Checkbox(("Show numeric value" + s).c_str(), &w.showText))     dirty = true;
+        if (hasText && ImGuiMCP::Checkbox(("Show numeric value" + s).c_str(), &w.showText))     dirty = true;
         if (ImGuiMCP::SliderFloat(("X" + s).c_str(),               &w.x,            0.0f, 3840.0f, "%.0f"))        dirty = true;
         if (ImGuiMCP::SliderFloat(("Y" + s).c_str(),               &w.y,            0.0f, 2160.0f, "%.0f"))        dirty = true;
         if (ImGuiMCP::SliderFloat(("Icon height (px)" + s).c_str(),&w.iconHeightPx, 16.0f, maxIconHeight, "%.0f")) dirty = true;
-        if (ImGuiMCP::SliderFloat(("Text size (px)" + s).c_str(),  &w.textSizePx,   8.0f, 128.0f, "%.0f"))         dirty = true;
+        if (hasText && ImGuiMCP::SliderFloat(("Text size (px)" + s).c_str(),  &w.textSizePx,   8.0f, 128.0f, "%.0f"))         dirty = true;
         return dirty;
     }
 
@@ -29,6 +30,12 @@ namespace {
         if (ImGuiMCP::Checkbox("Glow pulse at max arousal##Arousal", &cfg.arousal.glowPulse)) dirty = true;
         if (ImGuiMCP::Checkbox("Advanced Nudity overlays##Arousal", &cfg.arousal.anOverlays)) dirty = true;
         if (ImGuiMCP::Checkbox("Shift+crosshair NPC arousal peek##Arousal", &cfg.arousal.npcCrosshair)) dirty = true;
+
+        // 2026-09-12: TDF auto-whoring indicator - its own position/scale, same page.
+        ImGuiMCP::Text("");
+        dirty |= DrawCommonControls("Auto-whoring indicator (TDF Enhanced Prostitution)", cfg.whoring,
+                                    /*maxIconHeight*/ 1024.0f, /*hasText*/ false);
+        ImGuiMCP::Text(HudUI::WhoringSourceStatus());
 
         if (dirty) Settings::MarkDirty();
         { auto lk = Settings::Lock(); Settings::Get() = cfg; }

@@ -28,11 +28,20 @@ namespace {
         out += buf;
     }
 
+    void AppendWhoring(std::string& out, const Settings::WhoringConfig& w) {
+        char buf[240];
+        std::snprintf(buf, sizeof(buf),
+            "  \"whoring\": { \"enabled\": %s, \"x\": %.2f, \"y\": %.2f, \"iconHeightPx\": %.2f },\n",
+            w.enabled ? "true" : "false", w.x, w.y, w.iconHeightPx);
+        out += buf;
+    }
+
     std::string Serialize(const Settings::Config& c) {
         std::string out;
-        out.reserve(640);
+        out.reserve(800);
         out += "{\n";
         AppendArousal(out, c.arousal);
+        AppendWhoring(out, c.whoring);
         char buf[200];
         std::snprintf(buf, sizeof(buf),
             "  \"arousalCadenceSec\": %d,\n  \"hideHotkeyDX\": %d,\n  \"followCompassHide\": %s\n}\n",
@@ -50,6 +59,20 @@ namespace {
         size_t end = p;
         while (end < json.size() && json[end] != ',' && json[end] != '}' && json[end] != '\n') ++end;
         return json.substr(p, end - p);
+    }
+
+    void ParseWhoring(const std::string& json, Settings::WhoringConfig& out) {
+        size_t s = json.find("\"whoring\"");
+        if (s == std::string::npos) return;
+        size_t open  = json.find('{', s);
+        size_t close = json.find('}', open);
+        if (open == std::string::npos || close == std::string::npos) return;
+        std::string body = json.substr(open + 1, close - open - 1);
+        std::string v;
+        if (!(v = FindValue(body, "enabled")).empty())      out.enabled      = (v.find("true") != std::string::npos);
+        if (!(v = FindValue(body, "x")).empty())            out.x            = std::strtof(v.c_str(), nullptr);
+        if (!(v = FindValue(body, "y")).empty())            out.y            = std::strtof(v.c_str(), nullptr);
+        if (!(v = FindValue(body, "iconHeightPx")).empty()) out.iconHeightPx = std::strtof(v.c_str(), nullptr);
     }
 
     void ParseArousal(const std::string& json, Settings::ArousalConfig& out) {
@@ -85,6 +108,7 @@ namespace Settings {
         }
         auto lk = Lock();
         ParseArousal(txt, g_config.arousal);
+        ParseWhoring(txt, g_config.whoring);
         std::string v;
         if (!(v = FindValue(txt, "arousalCadenceSec")).empty())
             g_config.arousalCadenceSec = std::atoi(v.c_str());

@@ -9,4 +9,8 @@ namespace HudUI {
     // kDataLoaded *after* Settings::Load() so the first frame has correct
     // positions.
     void Register();
+
+    // 2026-09-12: one-line status of the auto-whoring source for the settings page
+    // ("TDF Enhanced Prostitution.esp found" / "not installed - indicator inactive").
+    const char* WhoringSourceStatus();
 }
