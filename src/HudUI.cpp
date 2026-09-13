@@ -130,6 +130,52 @@ namespace {
     constexpr float kWhoringNativeW = 100.0f;
     constexpr float kWhoringNativeH = 100.0f;
 
+    // --Claude 2026-09-13: Radiant Prostitution also has a mode where NPCs walk up to
+    // the player, so "someone is approaching" on its own does not say which mod is
+    // driving it. Both are now detected and the icon says which: normal = TDF,
+    // mirrored left-to-right = Radiant.
+    //
+    // TDF's signal is the player's own toggle (the global above). Radiant has no
+    // equivalent global - its passive/active mode lives in Papyrus script properties on
+    // mf_Prostitute_Handler (mf_Variables.PassiveSolicit), which is awkward to read from
+    // native code. The reliable native signal is its client alias being FILLED: that only
+    // happens once RP has actually picked someone to send over, which is the moment the
+    // widget wants to report anyway.
+    //
+    //   mf_SolicitePlayer       0x011136  alias 5 "theClient"  (runs the approach roll)
+    //   mf_SolicitePlayerPooler 0x02AB81  alias 1 "aClient"    (candidate pooler)
+    //
+    // For reference, TDF's side of the same mechanism is BB_PlayerAutoWhoringPooler
+    // (0x000BDC), whose pNearbyActor1..10 aliases carry BB_PlayerAutoWhoringQuestPackage
+    // (0x000BEE, template ForceGreet) - that package is what walks an NPC over.
+    constexpr const char*   kRPEsp                 = "MF_RadiantProstitution.esp";
+    constexpr RE::FormID    kRPSolicitPlayer       = 0x011136;
+    constexpr RE::FormID    kRPSolicitPooler       = 0x02AB81;
+    constexpr std::uint32_t kRPSolicitPlayerClient = 5;
+    constexpr std::uint32_t kRPSolicitPoolerClient = 1;
+    RE::TESQuest*           g_rpSolicitPlayer = nullptr;
+    RE::TESQuest*           g_rpSolicitPooler = nullptr;
+
+    enum class WhoreSource { kNone, kTDF, kRadiant };
+
+    // True when the quest is running AND the given alias currently holds a reference.
+    bool QuestAliasFilled(RE::TESQuest* a_quest, std::uint32_t a_aliasID) {
+        if (!a_quest || !a_quest->IsRunning()) return false;
+        RE::BSReadLockGuard lk(a_quest->aliasAccessLock);
+        const auto it = a_quest->refAliasMap.find(a_aliasID);
+        return it != a_quest->refAliasMap.end() && it->second.get() != nullptr;
+    }
+
+    // TDF wins a tie: its global is an explicit player toggle, RP's is incidental state.
+    WhoreSource CurrentWhoreSource() {
+        if (g_whoringGlobal && g_whoringGlobal->value >= 0.5f) return WhoreSource::kTDF;
+        if (QuestAliasFilled(g_rpSolicitPlayer, kRPSolicitPlayerClient) ||
+            QuestAliasFilled(g_rpSolicitPooler, kRPSolicitPoolerClient)) {
+            return WhoreSource::kRadiant;
+        }
+        return WhoreSource::kNone;
+    }
+
     constexpr float kArousalNativeW = 100.0f;
     constexpr float kArousalNativeH = 100.0f;
     constexpr float kRefFontSize    = 16.0f;
@@ -229,17 +275,26 @@ namespace {
     }
 
     void __stdcall RenderWhoring() {
-        if (!g_loaded || !g_whoringGlobal || !g_whoringTex) return;
+        if (!g_loaded || !g_whoringTex) return;
         if (!Visibility::ShouldRender()) return;
         Settings::WhoringConfig cfg;
         { auto lk = Settings::Lock(); cfg = Settings::Get().whoring; }
         if (!cfg.enabled) return;
-        if (g_whoringGlobal->value < 0.5f) return;   // auto-whoring off -> draw nothing
+
+        const WhoreSource src = CurrentWhoreSource();
+        if (src == WhoreSource::kNone) return;   // nobody is soliciting -> draw nothing
+
+        // Mirrored left-to-right marks a Radiant Prostitution approach; TDF draws normal.
+        // (Swap the two pairs below for a top-to-bottom flip instead.)
+        const bool mirror = (src == WhoreSource::kRadiant);
+        const ImGuiMCP::ImVec2 uv0 = mirror ? ImGuiMCP::ImVec2{ 1, 0 } : ImGuiMCP::ImVec2{ 0, 0 };
+        const ImGuiMCP::ImVec2 uv1 = mirror ? ImGuiMCP::ImVec2{ 0, 1 } : ImGuiMCP::ImVec2{ 1, 1 };
 
         ImGuiMCP::SetNextWindowPos({ cfg.x, cfg.y }, ImGuiMCP::ImGuiCond_Always, { 0, 0 });
         bool open = true;
         if (ImGuiMCP::Begin("##hudwidget_whoring", &open, OverlayFlags)) {
-            ImGuiMCP::Image(g_whoringTex, IconSize(kWhoringNativeW, kWhoringNativeH, cfg.iconHeightPx));
+            ImGuiMCP::Image(g_whoringTex, IconSize(kWhoringNativeW, kWhoringNativeH, cfg.iconHeightPx),
+                            uv0, uv1);
         }
         ImGuiMCP::End();
     }
@@ -293,11 +348,27 @@ namespace HudUI {
         // --Claude 2026-09-12: auto-whoring indicator source + art.
         g_whoringTex    = SKSEMenuFramework::LoadTexture("Data/Interface/HUDWidgets/aroused/whoring.dds");
         g_whoringGlobal = dh ? dh->LookupForm<RE::TESGlobal>(kTDFAutoWhore, kTDFEsp) : nullptr;
-        if (g_whoringGlobal && g_whoringTex)      g_whoringStatus = "TDF Enhanced Prostitution.esp found - indicator active while auto-whoring is on";
-        else if (!g_whoringGlobal)                g_whoringStatus = "TDF Enhanced Prostitution.esp not installed - indicator inactive";
-        else                                      g_whoringStatus = "whoring.dds missing from Interface/HUDWidgets/aroused - indicator inactive";
-        SKSE::log::info("HudUI::Register - whoring indicator: global {} texture {}",
-                        g_whoringGlobal ? "found" : "missing", g_whoringTex ? "loaded" : "missing");
+        // --Claude 2026-09-13: Radiant Prostitution's solicit quests, for the mirrored icon.
+        g_rpSolicitPlayer = dh ? dh->LookupForm<RE::TESQuest>(kRPSolicitPlayer, kRPEsp) : nullptr;
+        g_rpSolicitPooler = dh ? dh->LookupForm<RE::TESQuest>(kRPSolicitPooler, kRPEsp) : nullptr;
+        const bool rpFound = (g_rpSolicitPlayer || g_rpSolicitPooler);
+
+        if (!g_whoringTex) {
+            g_whoringStatus = "whoring.dds missing from Interface/HUDWidgets/aroused - indicator inactive";
+        } else if (g_whoringGlobal && rpFound) {
+            g_whoringStatus = "TDF + Radiant Prostitution found - normal icon = TDF, mirrored icon = Radiant";
+        } else if (g_whoringGlobal) {
+            g_whoringStatus = "TDF Enhanced Prostitution.esp found (Radiant not installed) - indicator active while auto-whoring is on";
+        } else if (rpFound) {
+            g_whoringStatus = "Radiant Prostitution found (TDF not installed) - mirrored icon while a Radiant client is approaching";
+        } else {
+            g_whoringStatus = "Neither TDF Enhanced Prostitution nor Radiant Prostitution installed - indicator inactive";
+        }
+        SKSE::log::info("HudUI::Register - whoring indicator: TDF global {} / RP solicit {} + pooler {} / texture {}",
+                        g_whoringGlobal ? "found" : "missing",
+                        g_rpSolicitPlayer ? "found" : "missing",
+                        g_rpSolicitPooler ? "found" : "missing",
+                        g_whoringTex ? "loaded" : "missing");
 
         g_loaded = true;
 
