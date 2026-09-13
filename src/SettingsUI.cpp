@@ -33,7 +33,7 @@ namespace {
 
         // 2026-09-12: TDF auto-whoring indicator - its own position/scale, same page.
         ImGuiMCP::Text("");
-        dirty |= DrawCommonControls("Auto-whoring indicator (TDF Enhanced Prostitution)", cfg.whoring,
+        dirty |= DrawCommonControls("Prostitution indicator (TDF auto-whoring & Radiant)", cfg.whoring,
                                     /*maxIconHeight*/ 1024.0f, /*hasText*/ false);
         ImGuiMCP::Text(HudUI::WhoringSourceStatus());
 
