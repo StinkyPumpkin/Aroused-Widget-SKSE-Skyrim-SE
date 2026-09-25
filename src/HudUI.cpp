@@ -55,6 +55,16 @@ namespace {
         return std::chrono::steady_clock::now() - g_layoutPageSeen < std::chrono::milliseconds(250);
     }
 
+    // 0.4.0: SKSE Menu Framework's main window (exported GetMainWindow, resolved once in
+    // Register). While it is open, Visibility::ShouldRender skips the soft hides (iHUD /
+    // TFCam HideAll, auto-vanity, compass-follow) so nothing vanishes mid-placement.
+    // LayoutPageOpen() is the fallback if an SMF build does not export GetMainWindow.
+    SKSEMenuFramework::Model::WindowInterface* g_smfMain = nullptr;
+
+    bool SMFMenuOpen() {
+        return (g_smfMain && g_smfMain->IsOpen.load(std::memory_order_relaxed)) || LayoutPageOpen();
+    }
+
     float OpacityOf(const Settings::WidgetConfig& a_cfg) {
         const float a = a_cfg.opacityPct / 100.0f;
         return a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a);
@@ -226,7 +236,7 @@ namespace {
 
     void __stdcall RenderArousal() {
         if (!g_loaded) return;
-        if (!Visibility::ShouldRender()) return;
+        if (!Visibility::ShouldRender(SMFMenuOpen())) return;
         Settings::ArousalConfig cfg;
         { auto lk = Settings::Lock(); cfg = Settings::Get().arousal; }
         if (!cfg.enabled) return;
@@ -313,7 +323,9 @@ namespace {
             widgets = Settings::Get().anWidgets;
         }
         if (!arousal.anOverlays || !arousal.anSeparate) return;
-        if (!Visibility::ShouldRender()) return;
+        // The Layout-page preview needs the SMF menu open, so the soft hides (compass-follow
+        // etc.) can no longer suppress it - only the hard gates can.
+        if (!Visibility::ShouldRender(SMFMenuOpen())) return;
 
         RefreshANStates();
         const bool preview = LayoutPageOpen();
@@ -338,7 +350,7 @@ namespace {
 
     void __stdcall RenderWhoring() {
         if (!g_loaded || !g_whoringTex) return;
-        if (!Visibility::ShouldRender()) return;
+        if (!Visibility::ShouldRender(SMFMenuOpen())) return;
         Settings::WhoringConfig cfg;
         { auto lk = Settings::Lock(); cfg = Settings::Get().whoring; }
         if (!cfg.enabled) return;
@@ -435,6 +447,10 @@ namespace HudUI {
                         g_rpSolicitPlayer ? "found" : "missing",
                         g_rpSolicitPooler ? "found" : "missing",
                         g_whoringTex ? "loaded" : "missing");
+
+        g_smfMain = SKSEMenuFramework::GetMainWindow();
+        SKSE::log::info("HudUI::Register - SMF main window {} (soft hides are suspended while it is open)",
+                        g_smfMain ? "found" : "not exported - falling back to the Layout page only");
 
         g_loaded = true;
 
