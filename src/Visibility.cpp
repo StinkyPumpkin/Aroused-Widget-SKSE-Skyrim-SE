@@ -221,8 +221,17 @@ namespace Visibility {
         { auto lk = Settings::Lock(); follow = Settings::Get().followCompassHide; }
         if (follow) {
             // Main-thread poll result only - never touch Scaleform from the render path.
+            //
+            // --Claude 2026-09-15: the arousal threshold has to win here too. Reported
+            // as "the widget was pulsing at max, then vanished when the compass auto-hid;
+            // iHUD key off/on brings it back". It was this branch: iHUD's Smart Hide
+            // hides the compass, we follow it, and RespectArousalThreshold never got a
+            // say because it was only consulted in IsHiddenByExternal() above. If the
+            // user asked us to stay up at high arousal, that must hold no matter WHICH
+            // path wants the widget gone.
             if (g_compassResolved.load(std::memory_order_relaxed) &&
-                g_compassHidden.load(std::memory_order_relaxed)) return false;
+                g_compassHidden.load(std::memory_order_relaxed) &&
+                !iHUDBridge::ArousalAboveRespectThreshold()) return false;
         }
 
         return true;
