@@ -167,6 +167,7 @@ namespace {
         case SKSE::MessagingInterface::kPostLoadGame:
         case SKSE::MessagingInterface::kNewGame:
             ArousalReader::Refresh();
+            iHUDBridge::OnGameLoaded();
             break;
         }
     }

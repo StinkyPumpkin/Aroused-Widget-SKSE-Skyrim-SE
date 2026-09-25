@@ -41,6 +41,7 @@ Open the SKSE Menu Framework overlay → **Aroused Widget** section:
 - Image set (aroused / exposure)
 - Poll cadence
 - "Follow compass hide" (auto-hide with the vanilla compass)
+- While the SKSE Menu Framework menu is open, the iHUD / TFCam hide, the compass-follow hide and the auto-vanity hide are suspended so the widgets stay visible while you place them
 
 Settings persist to `Data/SKSE/Plugins/ArousedWidget/` per profile.
 

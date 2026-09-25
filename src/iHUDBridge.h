@@ -30,6 +30,10 @@ namespace iHUDBridge {
     // HiddenBy() != Hider::kNone.
     bool IsHiddenByExternal();
 
+    // 0.4.0: kPostLoadGame / kNewGame - clear a TFCam HideAll whose RestoreAll never came
+    // (free camera does not survive a load). iHUD's hide is left alone.
+    void OnGameLoaded();
+
     // --Claude 2026-09-15: true when a RespectArousalThreshold was sent AND current
     // arousal is at or above it, i.e. "keep the widget up regardless of who wants it
     // hidden". Exposed because the threshold has to apply to EVERY hide path, not

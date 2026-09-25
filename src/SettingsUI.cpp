@@ -84,6 +84,7 @@ namespace {
             if (HudUI::ANOverlaysAvailable()) {
                 ImGuiMCP::Text("All three are shown while this page is open so you can place them;");
                 ImGuiMCP::Text("in game each one appears only while that region is flashed.");
+                ImGuiMCP::Text("Each has its own Enabled box; the Arousal Enabled box above does not hide them.");
             } else {
                 ImGuiMCP::Text("Advanced Nudity Detection.esp or the arousedAN*.dds art was not found - these stay hidden.");
             }

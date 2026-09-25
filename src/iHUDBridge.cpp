@@ -88,6 +88,19 @@ namespace iHUDBridge {
         SKSE::log::info("iHUDBridge: listener registered for senders 'iHUDClaude' + 'TFCam'");
     }
 
+    void OnGameLoaded() {
+        // A TFCam HideAll must not outlive its free-camera session. TFCam's ShowHUD returns
+        // BEFORE it sends RestoreAll when the "HUD Menu" movie is missing (e.g. free cam
+        // ending around a load), and since 0.4.0 an iHUD RestoreAll no longer clears TFCam's
+        // flag, so a missed RestoreAll would hide the widget until the next free-cam cycle.
+        // A loaded save / new game starts outside free camera, so drop TFCam's flag here.
+        // iHUD's flag is deliberately kept: iHUD only re-sends HideAll on a Smart Hide
+        // transition, so clearing it would show the widget while Smart Hide is still armed.
+        if (g_tfcamHide.exchange(false, std::memory_order_relaxed)) {
+            SKSE::log::info("iHUDBridge: cleared a TFCam HideAll left over from before the load");
+        }
+    }
+
     bool ArousalAboveRespectThreshold() {
         const float threshold = g_arousalThreshold.load(std::memory_order_relaxed);
         if (threshold <= 0.0f) return false;

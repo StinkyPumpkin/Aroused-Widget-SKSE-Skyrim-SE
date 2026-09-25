@@ -195,7 +195,7 @@ namespace Visibility {
         return g_manuallyHidden.load(std::memory_order_relaxed);
     }
 
-    bool ShouldRender() {
+    bool ShouldRender(bool a_menuOpen) {
         // One-shot: log every reason we'd return early on the first call,
         // plus the actual followCompassHide value seen.
         static bool s_dumpedFlow = false;
@@ -211,8 +211,12 @@ namespace Visibility {
 
         // External hide via iHUDClaude's "Universal Hide" (Smart or Nuclear) or TFCam's
         // free-camera HUD hide. Modulated by RespectArousalThreshold if iHUDClaude sent one.
-        if (const auto hider = iHUDBridge::HiddenBy(); hider != iHUDBridge::Hider::kNone) {
-            return Hide(kExternal, static_cast<int>(hider));
+        // Not while the SKSE Menu Framework menu is open (same rule SMF's own HudManager
+        // uses for its hide list: with the menu open the user may be placing the widget).
+        if (!a_menuOpen) {
+            if (const auto hider = iHUDBridge::HiddenBy(); hider != iHUDBridge::Hider::kNone) {
+                return Hide(kExternal, static_cast<int>(hider));
+            }
         }
 
         auto* ui = RE::UI::GetSingleton();
@@ -239,8 +243,9 @@ namespace Visibility {
             if (ui->IsMenuOpen(kBlockMenus[i])) return Hide(kMenu, i);
         }
 
+        // Soft gates from here down: skipped while the SMF menu is open (see a_menuOpen).
         auto* pc = RE::PlayerCamera::GetSingleton();
-        if (pc) {
+        if (pc && !a_menuOpen) {
             const auto idx = static_cast<size_t>(RE::CameraStates::kAutoVanity);
             const auto& vanityState = pc->cameraStates[idx];
             const auto& cur = pc->currentState;
@@ -249,7 +254,7 @@ namespace Visibility {
 
         bool follow = true;
         { auto lk = Settings::Lock(); follow = Settings::Get().followCompassHide; }
-        if (follow) {
+        if (follow && !a_menuOpen) {
             // Main-thread poll result only - never touch Scaleform from the render path.
             //
             // --Claude 2026-09-15: the arousal threshold has to win here too. Reported
