@@ -125,6 +125,49 @@ namespace {
     std::atomic<bool> g_compassResolved{false};
     std::atomic<bool> g_pollQueued{false};
 
+    // Verified against CommonLibSSE-NG MENU_NAME constants. Note: spaces
+    // and capitalisation are wildly inconsistent in Bethesda's naming.
+    constexpr const char* kBlockMenus[] = {
+        // v0.3.3: Fader/Mist/LoadWaitSpinner cover the load-adjacent transitions the
+        // Loading Menu check alone misses (field report: widget visible during loads).
+        "Fader Menu",       "Mist Menu",
+        "LoadWaitSpinner",
+        "Main Menu",        "Loading Menu",
+        "Console",          "MessageBoxMenu",
+        "Crafting Menu",    "BarterMenu",
+        "ContainerMenu",    "GiftMenu",
+        "InventoryMenu",    "MagicMenu",
+        "MapMenu",          "FavoritesMenu",
+        "Dialogue Menu",    "Journal Menu",
+        "Book Menu",        "TweenMenu",
+        "Tutorial Menu",    "RaceSex Menu",
+        "Sleep/Wait Menu",
+    };
+
+    // --Claude 2026-09-26 (0.4.0): WHY the widget is hidden right now. "Disappears
+    // randomly" reports could not be attributed: eight different gates can hide the
+    // widget and only the compass one ever logged. ShouldRender (render thread) records
+    // the gate that fired; WidgetController's thread logs it on change
+    // (LogHideReasonChange), so there is no file I/O inside the Present hook.
+    // Packed as (reason << 8) | detail in one atomic so a reader never sees a torn pair.
+    enum HideReason : int {
+        kShown = 0,
+        kManual,        // hide hotkey
+        kExternal,      // iHUDClaude / TFCam HideAll (detail = iHUDBridge::Hider)
+        kPaused,        // UI::GameIsPaused
+        kShowMenusOff,  // `tm` / Photo Mode Hide UI
+        kNo3D,          // player 3D unloaded (load screens)
+        kMenu,          // blocking menu open (detail = kBlockMenus index)
+        kAutoVanity,    // auto-vanity (idle) camera
+        kCompass,       // following the compass hide
+    };
+    std::atomic<int> g_hideState{ -1 };   // -1 = ShouldRender has not run yet
+
+    bool Hide(int a_reason, int a_detail = 0) {
+        g_hideState.store((a_reason << 8) | (a_detail & 0xFF), std::memory_order_relaxed);
+        return false;
+    }
+
     void LogCompassChange(const CompassRead& cur) {
         if (cur.pathIdx != g_resolvedPathIdx) {
             if (cur.pathIdx >= 0) {
@@ -164,49 +207,36 @@ namespace Visibility {
                             g_manuallyHidden.load(), follow0);
         }
 
-        if (g_manuallyHidden.load(std::memory_order_relaxed)) return false;
+        if (g_manuallyHidden.load(std::memory_order_relaxed)) return Hide(kManual);
 
-        // External hide via iHUDClaude's "Universal Hide" (Smart or Nuclear).
-        // Modulated by RespectArousalThreshold if iHUDClaude sent one.
-        if (iHUDBridge::IsHiddenByExternal()) return false;
+        // External hide via iHUDClaude's "Universal Hide" (Smart or Nuclear) or TFCam's
+        // free-camera HUD hide. Modulated by RespectArousalThreshold if iHUDClaude sent one.
+        if (const auto hider = iHUDBridge::HiddenBy(); hider != iHUDBridge::Hider::kNone) {
+            return Hide(kExternal, static_cast<int>(hider));
+        }
 
         auto* ui = RE::UI::GetSingleton();
-        if (!ui) return true;
+        if (!ui) {
+            g_hideState.store(kShown << 8, std::memory_order_relaxed);
+            return true;
+        }
 
-        if (ui->GameIsPaused()) return false;
+        if (ui->GameIsPaused()) return Hide(kPaused);
 
         // v0.3.5 (Nexus request): follow the game's own "show menus" flag. This is what
         // the `tm` console command and po3's Photo Mode "Hide UI" flip (UI::ShowMenus);
         // it hides every Scaleform menu but not an ImGui overlay, so mirror it here.
         // VR has no Photo Mode and its UI runtime data differs; keep the gate SE/AE-only.
-        if (!REL::Module::IsVR() && !ui->IsShowingMenus()) return false;
+        if (!REL::Module::IsVR() && !ui->IsShowingMenus()) return Hide(kShowMenusOff);
 
         // Load screens: the menu-name/pause checks below can miss transitions
         // (field report: widget visible during a loading screen). The player's
         // 3D is unloaded during every load — a reliable catch-all.
         auto* player = RE::PlayerCharacter::GetSingleton();
-        if (!player || !player->Is3DLoaded()) return false;
+        if (!player || !player->Is3DLoaded()) return Hide(kNo3D);
 
-        // Verified against CommonLibSSE-NG MENU_NAME constants. Note: spaces
-        // and capitalisation are wildly inconsistent in Bethesda's naming.
-        static constexpr const char* kBlockMenus[] = {
-            // v0.3.3: Fader/Mist/LoadWaitSpinner cover the load-adjacent transitions the
-            // Loading Menu check alone misses (field report: widget visible during loads).
-            "Fader Menu",       "Mist Menu",
-            "LoadWaitSpinner",
-            "Main Menu",        "Loading Menu",
-            "Console",          "MessageBoxMenu",
-            "Crafting Menu",    "BarterMenu",
-            "ContainerMenu",    "GiftMenu",
-            "InventoryMenu",    "MagicMenu",
-            "MapMenu",          "FavoritesMenu",
-            "Dialogue Menu",    "Journal Menu",
-            "Book Menu",        "TweenMenu",
-            "Tutorial Menu",    "RaceSex Menu",
-            "Sleep/Wait Menu",
-        };
-        for (const char* name : kBlockMenus) {
-            if (ui->IsMenuOpen(name)) return false;
+        for (int i = 0; i < static_cast<int>(std::size(kBlockMenus)); ++i) {
+            if (ui->IsMenuOpen(kBlockMenus[i])) return Hide(kMenu, i);
         }
 
         auto* pc = RE::PlayerCamera::GetSingleton();
@@ -214,7 +244,7 @@ namespace Visibility {
             const auto idx = static_cast<size_t>(RE::CameraStates::kAutoVanity);
             const auto& vanityState = pc->cameraStates[idx];
             const auto& cur = pc->currentState;
-            if (cur && vanityState && cur.get() == vanityState.get()) return false;
+            if (cur && vanityState && cur.get() == vanityState.get()) return Hide(kAutoVanity);
         }
 
         bool follow = true;
@@ -231,10 +261,55 @@ namespace Visibility {
             // path wants the widget gone.
             if (g_compassResolved.load(std::memory_order_relaxed) &&
                 g_compassHidden.load(std::memory_order_relaxed) &&
-                !iHUDBridge::ArousalAboveRespectThreshold()) return false;
+                !iHUDBridge::ArousalAboveRespectThreshold()) return Hide(kCompass);
         }
 
+        g_hideState.store(kShown << 8, std::memory_order_relaxed);
         return true;
+    }
+
+    void LogHideReasonChange() {
+        static int s_logged = -1;   // WidgetController thread only
+        const int cur = g_hideState.load(std::memory_order_relaxed);
+        if (cur < 0 || cur == s_logged) return;
+        s_logged = cur;
+
+        const int reason = cur >> 8;
+        const int detail = cur & 0xFF;
+        switch (reason) {
+        case kShown:
+            SKSE::log::info("Visibility: widget shown");
+            break;
+        case kManual:
+            SKSE::log::info("Visibility: widget hidden - hide hotkey toggled");
+            break;
+        case kExternal:
+            SKSE::log::info("Visibility: widget hidden - {} HideAll in force",
+                            detail == static_cast<int>(iHUDBridge::Hider::kTFCam) ? "TFCam free camera"
+                                                                                   : "iHUD Smart Hide");
+            break;
+        case kPaused:
+            SKSE::log::info("Visibility: widget hidden - game paused (a pausing menu is open)");
+            break;
+        case kShowMenusOff:
+            SKSE::log::info("Visibility: widget hidden - UI hidden (tm / Photo Mode Hide UI)");
+            break;
+        case kNo3D:
+            SKSE::log::info("Visibility: widget hidden - player 3D not loaded (loading)");
+            break;
+        case kMenu:
+            SKSE::log::info("Visibility: widget hidden - menu open: {}",
+                            detail < static_cast<int>(std::size(kBlockMenus)) ? kBlockMenus[detail] : "?");
+            break;
+        case kAutoVanity:
+            SKSE::log::info("Visibility: widget hidden - auto-vanity (idle) camera");
+            break;
+        case kCompass:
+            SKSE::log::info("Visibility: widget hidden - following the compass hide (Visibility page option)");
+            break;
+        default:
+            break;
+        }
     }
 
     void QueueCompassPoll() {

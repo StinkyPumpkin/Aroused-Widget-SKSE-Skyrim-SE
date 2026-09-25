@@ -36,6 +36,9 @@ namespace {
             // v0.3.7: compass-follow state is read on the MAIN thread via an SKSE task
             // (Scaleform GetVariable from the render hook crashed - see Visibility.cpp).
             Visibility::QueueCompassPoll();
+            // 0.4.0: one log line per visibility change, so a "widget disappeared" report
+            // names the gate that hid it (file I/O kept off the render thread).
+            Visibility::LogHideReasonChange();
             std::this_thread::sleep_for(250ms);
         }
         SKSE::log::info("WidgetController loop stopped");

@@ -1,6 +1,6 @@
 #pragma once
 
-// Bridge for receiving messages from iHUDClaude.dll over SKSE messaging.
+// Bridge for receiving messages from iHUDClaude.dll (and TFCam) over SKSE messaging.
 // iHUDClaude's "Universal Hide" feature dispatches to this listener so we
 // hide our own widgets in coordination with the rest of the user's HUD.
 namespace iHUDBridge {
@@ -12,12 +12,22 @@ namespace iHUDBridge {
         kRespectArousalThreshold = 3,  // payload: float; only hide if current arousal < threshold
     };
 
-    // Register the SKSE messaging listener for sender "iHUDClaude".
+    // Who is currently hiding the widget (0.4.0: tracked per sender).
+    enum class Hider : int {
+        kNone  = 0,
+        kIHUD  = 1,  // iHUDClaude Smart Hide
+        kTFCam = 2,  // TFCam free camera HUD hide
+    };
+
+    // Register the SKSE messaging listeners for senders "iHUDClaude" and "TFCam".
     // Call from kPostLoad.
     void Register();
 
-    // True iff iHUDClaude has sent kHideAll and not yet sent kRestoreAll
-    // (modulated by kRespectArousalThreshold if applicable).
+    // Which sender's HideAll is in force right now (each sender's HideAll is undone only
+    // by that same sender's RestoreAll), modulated by kRespectArousalThreshold.
+    Hider HiddenBy();
+
+    // HiddenBy() != Hider::kNone.
     bool IsHiddenByExternal();
 
     // --Claude 2026-09-15: true when a RespectArousalThreshold was sent AND current
