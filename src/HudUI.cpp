@@ -32,16 +32,33 @@ namespace {
     struct ANOverlay {
         RE::FormID            id;
         const char*           dds;
+        const char*           window;                // 0.4.0: ImGui id when drawn as its own widget
         RE::TESFaction*       faction = nullptr;
         ImGuiMCP::ImTextureID tex     = nullptr;
         bool                  active  = false;   // cached rank check
     };
-    std::array<ANOverlay, 3> g_an{ {
-        { 0x00082E, "arousedANass" },
-        { 0x00082F, "arousedANboobs" },
-        { 0x000830, "arousedANvagina" },
+    // Index order = Settings::ANRegion (0 ass, 1 boobs, 2 vagina) = Config::anWidgets.
+    std::array<ANOverlay, Settings::kANCount> g_an{ {
+        { 0x00082E, "arousedANass",    "##hudwidget_anAss" },
+        { 0x00082F, "arousedANboobs",  "##hudwidget_anBoobs" },
+        { 0x000830, "arousedANvagina", "##hudwidget_anVagina" },
     } };
     bool g_anAvailable = false;
+
+    // 0.4.0: the separate AN widgets only draw while their region is flashed, which would
+    // make them impossible to place. SettingsUI stamps this every frame the Layout page is
+    // drawn; while it is fresh, all enabled AN widgets draw as a placement preview. Both
+    // callers run on SKSE Menu Framework's render thread (HUD elements, then windows).
+    std::chrono::steady_clock::time_point g_layoutPageSeen{};
+
+    bool LayoutPageOpen() {
+        return std::chrono::steady_clock::now() - g_layoutPageSeen < std::chrono::milliseconds(250);
+    }
+
+    float OpacityOf(const Settings::WidgetConfig& a_cfg) {
+        const float a = a_cfg.opacityPct / 100.0f;
+        return a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a);
+    }
 
     // Re-read the AND faction ranks at most twice a second — cheap, and render
     // stays a cached lookup.
@@ -233,8 +250,15 @@ namespace {
         ImGuiMCP::ImTextureID tex = g_arousalTex[level];
         if (!tex) return;
 
+        // 0.4.0: opacity slider. style.Alpha multiplies every colour ImGui emits inside the
+        // window - Image tints (icon, glow, AN overlays) and Text alike (ImGui 1.90.8
+        // GetColorU32) - so one push covers the whole widget.
+        const float alpha = OpacityOf(cfg);
+        if (alpha <= 0.0f) return;
+
         ImGuiMCP::SetNextWindowPos({ cfg.x, cfg.y },
                                     ImGuiMCP::ImGuiCond_Always, { 0, 0 });
+        ImGuiMCP::PushStyleVar(ImGuiMCP::ImGuiStyleVar_Alpha, alpha);
         bool open = true;
         if (ImGuiMCP::Begin("##hudwidget_arousal", &open, OverlayFlags)) {
             const auto size    = IconSize(kArousalNativeW, kArousalNativeH, cfg.iconHeightPx);
@@ -252,7 +276,8 @@ namespace {
 
             // Advanced Nudity flash overlays — one layer per flashed region.
             // Player-only (they read the player's factions); skip while peeking an NPC.
-            if (!showNpc && cfg.anOverlays && g_anAvailable) {
+            // 0.4.0: with "separate widgets" on they are drawn by RenderANSeparate instead.
+            if (!showNpc && cfg.anOverlays && !cfg.anSeparate && g_anAvailable) {
                 RefreshANStates();
                 for (const auto& o : g_an) {
                     if (!o.active) continue;
@@ -272,6 +297,43 @@ namespace {
             }
         }
         ImGuiMCP::End();
+        ImGuiMCP::PopStyleVar();
+    }
+
+    // 0.4.0 (Nexus request): the three Advanced Nudity overlays as separate widgets, each
+    // with its own position / size / opacity (Config::anWidgets). Same art, same player
+    // faction-rank state as the on-icon overlays; only the placement differs.
+    void __stdcall RenderANSeparate() {
+        if (!g_loaded || !g_anAvailable) return;
+        Settings::ArousalConfig arousal;
+        std::array<Settings::WidgetConfig, Settings::kANCount> widgets;
+        {
+            auto lk = Settings::Lock();
+            arousal = Settings::Get().arousal;
+            widgets = Settings::Get().anWidgets;
+        }
+        if (!arousal.anOverlays || !arousal.anSeparate) return;
+        if (!Visibility::ShouldRender()) return;
+
+        RefreshANStates();
+        const bool preview = LayoutPageOpen();
+        for (std::size_t i = 0; i < g_an.size(); ++i) {
+            const auto& o = g_an[i];
+            const auto& w = widgets[i];
+            if (!o.tex || !o.faction || !w.enabled) continue;
+            if (!o.active && !preview) continue;
+            const float alpha = OpacityOf(w);
+            if (alpha <= 0.0f) continue;
+
+            ImGuiMCP::SetNextWindowPos({ w.x, w.y }, ImGuiMCP::ImGuiCond_Always, { 0, 0 });
+            ImGuiMCP::PushStyleVar(ImGuiMCP::ImGuiStyleVar_Alpha, alpha);
+            bool open = true;
+            if (ImGuiMCP::Begin(o.window, &open, OverlayFlags)) {
+                ImGuiMCP::Image(o.tex, IconSize(kArousalNativeW, kArousalNativeH, w.iconHeightPx));
+            }
+            ImGuiMCP::End();
+            ImGuiMCP::PopStyleVar();
+        }
     }
 
     void __stdcall RenderWhoring() {
@@ -303,6 +365,10 @@ namespace {
 namespace HudUI {
 
     const char* WhoringSourceStatus() { return g_whoringStatus; }
+
+    bool ANOverlaysAvailable() { return g_anAvailable; }
+
+    void NoteLayoutPageOpen() { g_layoutPageSeen = std::chrono::steady_clock::now(); }
 
     void Register() {
         const bool installed = SKSEMenuFramework::IsInstalled();
@@ -373,7 +439,8 @@ namespace HudUI {
         g_loaded = true;
 
         SKSEMenuFramework::AddHudElement(RenderArousal);
+        SKSEMenuFramework::AddHudElement(RenderANSeparate);
         SKSEMenuFramework::AddHudElement(RenderWhoring);
-        SKSE::log::info("HudUI::Register - 2 HUD elements registered");
+        SKSE::log::info("HudUI::Register - 3 HUD elements registered");
     }
 }
