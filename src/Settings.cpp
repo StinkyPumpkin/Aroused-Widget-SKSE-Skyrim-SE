@@ -14,19 +14,33 @@ namespace {
     std::atomic<bool> g_dirty{false};
 
     void AppendArousal(std::string& out, const Settings::ArousalConfig& a) {
-        char buf[400];
+        char buf[512];
         std::snprintf(buf, sizeof(buf),
             "  \"arousal\": { \"enabled\": %s, \"x\": %.2f, \"y\": %.2f, "
             "\"iconHeightPx\": %.2f, \"textSizePx\": %.2f, \"showText\": %s, "
-            "\"glowPulse\": %s, \"anOverlays\": %s, \"npcCrosshair\": %s },\n",
+            "\"glowPulse\": %s, \"anOverlays\": %s, \"npcCrosshair\": %s, "
+            "\"opacity\": %.2f, \"anSeparate\": %s },\n",
             a.enabled  ? "true" : "false",
             a.x, a.y, a.iconHeightPx, a.textSizePx,
             a.showText ? "true" : "false",
             a.glowPulse  ? "true" : "false",
             a.anOverlays ? "true" : "false",
-            a.npcCrosshair ? "true" : "false");
+            a.npcCrosshair ? "true" : "false",
+            a.opacityPct,
+            a.anSeparate ? "true" : "false");
         out += buf;
     }
+
+    // 0.4.0: one block per Advanced Nudity overlay widget ("anAss" / "anBoobs" / "anVagina").
+    void AppendANWidget(std::string& out, const char* key, const Settings::WidgetConfig& w) {
+        char buf[240];
+        std::snprintf(buf, sizeof(buf),
+            "  \"%s\": { \"enabled\": %s, \"x\": %.2f, \"y\": %.2f, \"iconHeightPx\": %.2f, \"opacity\": %.2f },\n",
+            key, w.enabled ? "true" : "false", w.x, w.y, w.iconHeightPx, w.opacityPct);
+        out += buf;
+    }
+
+    float ClampOpacity(float v) { return v < 0.0f ? 0.0f : (v > 100.0f ? 100.0f : v); }
 
     void AppendWhoring(std::string& out, const Settings::WhoringConfig& w) {
         char buf[240];
@@ -42,6 +56,9 @@ namespace {
         out += "{\n";
         AppendArousal(out, c.arousal);
         AppendWhoring(out, c.whoring);
+        for (int i = 0; i < Settings::kANCount; ++i) {
+            AppendANWidget(out, Settings::kANKeys[i], c.anWidgets[i]);
+        }
         char buf[200];
         std::snprintf(buf, sizeof(buf),
             "  \"arousalCadenceSec\": %d,\n  \"hideHotkeyDX\": %d,\n  \"followCompassHide\": %s\n}\n",
@@ -92,6 +109,26 @@ namespace {
         if (!(v = FindValue(body, "glowPulse")).empty())    out.glowPulse    = (v.find("true") != std::string::npos);
         if (!(v = FindValue(body, "anOverlays")).empty())   out.anOverlays   = (v.find("true") != std::string::npos);
         if (!(v = FindValue(body, "npcCrosshair")).empty()) out.npcCrosshair = (v.find("true") != std::string::npos);
+        // 0.4.0 keys - absent from older files, so the defaults (100 %, overlays on the icon) stay.
+        if (!(v = FindValue(body, "opacity")).empty())      out.opacityPct   = ClampOpacity(std::strtof(v.c_str(), nullptr));
+        if (!(v = FindValue(body, "anSeparate")).empty())   out.anSeparate   = (v.find("true") != std::string::npos);
+    }
+
+    void ParseANWidget(const std::string& json, const char* key, Settings::WidgetConfig& out) {
+        const std::string needle = std::string("\"") + key + "\"";
+        size_t s = json.find(needle);
+        if (s == std::string::npos) return;
+        size_t open  = json.find('{', s);
+        if (open == std::string::npos) return;
+        size_t close = json.find('}', open);
+        if (close == std::string::npos) return;
+        std::string body = json.substr(open + 1, close - open - 1);
+        std::string v;
+        if (!(v = FindValue(body, "enabled")).empty())      out.enabled      = (v.find("true") != std::string::npos);
+        if (!(v = FindValue(body, "x")).empty())            out.x            = std::strtof(v.c_str(), nullptr);
+        if (!(v = FindValue(body, "y")).empty())            out.y            = std::strtof(v.c_str(), nullptr);
+        if (!(v = FindValue(body, "iconHeightPx")).empty()) out.iconHeightPx = std::strtof(v.c_str(), nullptr);
+        if (!(v = FindValue(body, "opacity")).empty())      out.opacityPct   = ClampOpacity(std::strtof(v.c_str(), nullptr));
     }
 }
 
@@ -109,6 +146,9 @@ namespace Settings {
         auto lk = Lock();
         ParseArousal(txt, g_config.arousal);
         ParseWhoring(txt, g_config.whoring);
+        for (int i = 0; i < kANCount; ++i) {
+            ParseANWidget(txt, kANKeys[i], g_config.anWidgets[i]);
+        }
         std::string v;
         if (!(v = FindValue(txt, "arousalCadenceSec")).empty())
             g_config.arousalCadenceSec = std::atoi(v.c_str());

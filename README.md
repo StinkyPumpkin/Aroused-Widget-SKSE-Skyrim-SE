@@ -36,6 +36,8 @@ Open the SKSE Menu Framework overlay → **Aroused Widget** section:
 
 - Enable / disable the widget
 - Position (X / Y) and scale / icon height
+- Opacity (0-100 %)
+- Advanced Nudity overlays drawn on the icon, or as three separate widgets with their own position / size / opacity
 - Image set (aroused / exposure)
 - Poll cadence
 - "Follow compass hide" (auto-hide with the vanilla compass)
