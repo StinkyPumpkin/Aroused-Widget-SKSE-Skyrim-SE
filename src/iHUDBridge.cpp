@@ -61,19 +61,19 @@ namespace iHUDBridge {
         SKSE::log::info("iHUDBridge: listener registered for senders 'iHUDClaude' + 'TFCam'");
     }
 
+    bool ArousalAboveRespectThreshold() {
+        const float threshold = g_arousalThreshold.load(std::memory_order_relaxed);
+        if (threshold <= 0.0f) return false;
+        const auto arousal = ArousalReader::GetArousalCached();
+        return arousal && static_cast<float>(*arousal) >= threshold;
+    }
+
     bool IsHiddenByExternal() {
         if (!g_pendingHide.load(std::memory_order_relaxed)) return false;
-
-        // Threshold gating: if a threshold was set, only hide when current
-        // arousal is below it. (User wants widget to stay visible at high
-        // arousal even when iHUDClaude says "hide all".)
-        const float threshold = g_arousalThreshold.load(std::memory_order_relaxed);
-        if (threshold > 0.0f) {
-            const auto arousal = ArousalReader::GetArousalCached();
-            if (arousal && static_cast<float>(*arousal) >= threshold) {
-                return false;  // arousal high enough, override the hide
-            }
-        }
+        // Threshold gating: if a threshold was set, only hide when current arousal is
+        // below it. (Keep the widget visible at high arousal even when iHUDClaude
+        // says "hide all".)
+        if (ArousalAboveRespectThreshold()) return false;
         return true;
     }
 }

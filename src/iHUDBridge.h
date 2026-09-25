@@ -19,4 +19,10 @@ namespace iHUDBridge {
     // True iff iHUDClaude has sent kHideAll and not yet sent kRestoreAll
     // (modulated by kRespectArousalThreshold if applicable).
     bool IsHiddenByExternal();
+
+    // --Claude 2026-09-15: true when a RespectArousalThreshold was sent AND current
+    // arousal is at or above it, i.e. "keep the widget up regardless of who wants it
+    // hidden". Exposed because the threshold has to apply to EVERY hide path, not
+    // just iHUD's broadcast - see the compass-follow branch in Visibility.cpp.
+    bool ArousalAboveRespectThreshold();
 }
