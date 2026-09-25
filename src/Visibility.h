@@ -11,6 +11,10 @@ namespace Visibility {
     // result. The Scaleform read must never run from the render callback (v0.3.7 fix).
     void QueueCompassPoll();
 
+    // 0.4.0: log which gate is hiding the widget, once per change. Called on
+    // WidgetController's cadence (NOT the render thread); ShouldRender() only records.
+    void LogHideReasonChange();
+
     // Toggle the manual-hide state (called by the hotkey handler).
     void ToggleManualHide();
     // Read current manual-hide state.
