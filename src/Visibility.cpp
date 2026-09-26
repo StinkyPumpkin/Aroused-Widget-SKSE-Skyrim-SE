@@ -246,8 +246,11 @@ namespace Visibility {
         // Soft gates from here down: skipped while the SMF menu is open (see a_menuOpen).
         auto* pc = RE::PlayerCamera::GetSingleton();
         if (pc && !a_menuOpen) {
+            // 3.8.0 (CommonLibSSE-NG 9.x): cameraStates sits at a different offset on VR, so it is read through
+            // the per-runtime accessor. kAutoVanity (1) comes before VR's inserted kVR slot, same index everywhere.
             const auto idx = static_cast<size_t>(RE::CameraStates::kAutoVanity);
-            const auto& vanityState = pc->cameraStates[idx];
+            const auto& vanityState = REL::Module::IsVR() ? pc->GetVRRuntimeData()->cameraStates[idx]
+                                                          : pc->GetRuntimeData().cameraStates[idx];
             const auto& cur = pc->currentState;
             if (cur && vanityState && cur.get() == vanityState.get()) return Hide(kAutoVanity);
         }
