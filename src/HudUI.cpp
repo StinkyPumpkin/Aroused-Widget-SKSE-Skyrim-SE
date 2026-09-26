@@ -106,8 +106,12 @@ namespace {
     RE::Actor* CrosshairNpc() {
         auto* cd = RE::CrosshairPickData::GetSingleton();
         if (!cd) return nullptr;
-        RE::NiPointer<RE::TESObjectREFR> refr = cd->targetActor.get();
-        if (!refr) refr = cd->target.get();
+        // 3.8.0 (CommonLibSSE-NG 9.x): with VR enabled NG declares the VR layout (per-controller arrays), so the
+        // SE/AE members are read by offset: targetActor at 0x08 on SE/AE (as in 0.4.0), targetActor[left] at 0x10
+        // on VR. GetActiveTarget() = `target` (0x04) on SE/AE, the first non-empty controller target on VR.
+        const auto actorHandle = REL::RelocateMember<RE::ObjectRefHandle>(cd, 0x08, 0x10);
+        RE::NiPointer<RE::TESObjectREFR> refr = actorHandle.get();
+        if (!refr) refr = cd->GetActiveTarget().get();
         if (!refr) return nullptr;
         auto* a = skyrim_cast<RE::Actor*>(refr.get());
         if (!a || a->IsDead()) return nullptr;

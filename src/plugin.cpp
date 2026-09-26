@@ -82,7 +82,7 @@ namespace {
             log->flush_on(spdlog::level::info);
             spdlog::set_default_logger(std::move(log));
             spdlog::set_pattern("[%H:%M:%S.%e] [%l] %v");
-            SKSE::log::info("ArousedWidget v0.4.0 - logging initialized at {}", logPath.string());
+            SKSE::log::info("ArousedWidget v{} - logging initialized at {}", AW_VERSION, logPath.string());
             WriteStartupMarker("spdlog-init-ok", logPath.string());
         } catch (const std::exception& e) {
             WriteStartupMarker("spdlog-init-FAILED", std::string{e.what()} + " | path=" + logPath.string());
@@ -110,9 +110,11 @@ namespace {
     // tell the user exactly what to install instead of taking the game down.
     bool CheckAddressLibrary() {
         const auto ver = REL::Module::get().version();
-        // Same file CommonLib's IDDatabase::load() opens: VR reads a .csv, AE a versionlib .bin,
+        // Same file CommonLib's IDDB::load() opens: VR reads a .csv, AE a versionlib .bin,
         // SE a version .bin. (0.3.4-0.3.5 looked for a .bin on VR too, so every VR user got the
         // "Address Library missing" popup and a disabled widget - 0.3.6 fix.)
+        // 3.8.0 (CommonLibSSE-NG 9.x): NG classifies minor >= 6 as AE, so 1.7.x is AE here too and the file is
+        // versionlib-1-7-104-0.bin - the Address Library v5 database (format 5), which NG 9.x parses.
         std::string file;
         if (REL::Module::IsVR()) {
             file = std::format("Data/SKSE/Plugins/version-{}.csv", ver.string());
@@ -177,7 +179,10 @@ SKSEPluginLoad(const SKSE::LoadInterface* skse) {
     WriteStartupMarker("SKSEPluginLoad-enter");
     InitializeLogging();
     SKSE::log::info("ArousedWidget loading...");
-    SKSE::Init(skse);
+    SKSE::log::info("built on CommonLibSSE-NG {}", AW_COMMONLIB_VERSION);
+    // 3.8.0: CommonLibSSE-NG 9.x's Init opens its own <plugin>.log by default and would replace the logger set up
+    // above (same file, same format as 0.4.0), so NG's is switched off.
+    SKSE::Init(skse, { .log = false });
 
     auto* mi = SKSE::GetMessagingInterface();
     if (!mi || !mi->RegisterListener(MessageCallback)) {

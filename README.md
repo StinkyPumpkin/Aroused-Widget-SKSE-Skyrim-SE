@@ -20,7 +20,7 @@ A lightweight on-screen **arousal widget** for Skyrim SE/AE, made for **OSL Arou
 
 ## Requirements
 
-- Skyrim Special Edition (SE or AE)
+- Skyrim SE 1.5.97, AE 1.6.x (incl. 1.6.1170) or 1.7.x — one DLL for all (since 3.8; 1.7.x not yet tested in game)
 - [SKSE64](https://skse.silverlock.org/)
 - [Address Library for SKSE Plugins](https://www.nexusmods.com/skyrimspecialedition/mods/32444)
 - **SKSE Menu Framework** ([QTR-Modding](https://github.com/QTR-Modding/SKSE-Menu-Framework-3)) — provides the rendering + settings menu
@@ -47,15 +47,15 @@ Settings persist to `Data/SKSE/Plugins/ArousedWidget/` per profile.
 
 ## Building (developers)
 
-CMake + vcpkg + CommonLibSSE-NG, MSVC (VS BuildTools), Ninja.
+Since 3.8 the plugin builds against alandtse CommonLibSSE-NG 9.1.0, compiled from the pinned git submodule
+`extern/CommonLibSSE-NG`. MSVC 14.44 (VS 2022), CMake, Ninja, vcpkg.
 
 ```bat
-:: from a VS Developer environment
-cmake --preset release
-cmake --build build/release
+git submodule update --init --recursive --depth 1
+build.bat
 ```
 
-The `build.bat` helper configures the VS environment and auto-deploys the DLL.
+Full recipe in [BUILD.md](BUILD.md).
 
 ## Credits
 

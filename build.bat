@@ -1,31 +1,21 @@
 @echo off
-REM Build ArousedWidget SKSE DLL (renamed from ArousedWidgetClaude 2026-08-11)
-call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" amd64
-set PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;%PATH%
+REM ArousedWidget 3.8.0+ (branch ng91): CommonLibSSE-NG built from the pinned submodule extern\CommonLibSSE-NG. See BUILD.md.
+REM VS2022 Community (14.44) environment; the overlay triplet in cmake\ pins vcpkg deps to the same 14.44 toolset.
+REM Configures build\ng\release on first run, then builds. When SKYRIM_MODS_FOLDER is set, POST_BUILD copies
+REM ArousedWidget.dll into %SKYRIM_MODS_FOLDER%\Aroused Widget--Claude\SKSE\Plugins, so never run this while the game is running.
+call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" amd64
+set VCPKG_ROOT=C:\vcpkg
 cd /d %~dp0
-
-if not exist build\release (
+if not exist extern\CommonLibSSE-NG\cmake\CommonLibSSE.cmake (
+    echo === extern\CommonLibSSE-NG missing: git submodule update --init --recursive --depth 1 ===
+    exit /b 1
+)
+if not exist build\ng\release\build.ninja (
     echo === CONFIGURING ===
     cmake --preset release
-    if errorlevel 1 (
-        echo === CONFIGURE FAILED ===
-        exit /b 1
-    )
+    if errorlevel 1 ( echo === CONFIGURE FAILED === & exit /b 1 )
 )
-
 echo === BUILDING ===
-cmake --build build/release
-if errorlevel 1 (
-    echo === BUILD FAILED ===
-    exit /b 1
-)
-
+cmake --build build\ng\release
+if errorlevel 1 ( echo === BUILD FAILED === & exit /b 1 )
 echo === BUILD SUCCEEDED ===
-if exist build\release\ArousedWidget.dll (
-    if defined SKYRIM_MODS_FOLDER if not exist "%SKYRIM_MODS_FOLDER%\Aroused Widget--Claude\SKSE\Plugins" mkdir "%SKYRIM_MODS_FOLDER%\Aroused Widget--Claude\SKSE\Plugins"
-    if defined SKYRIM_MODS_FOLDER copy /y build\release\ArousedWidget.dll "%SKYRIM_MODS_FOLDER%\Aroused Widget--Claude\SKSE\Plugins\ArousedWidget.dll"
-    echo === DEPLOYED TO MO2 ===
-) else (
-    echo === DLL NOT FOUND ===
-    exit /b 1
-)
