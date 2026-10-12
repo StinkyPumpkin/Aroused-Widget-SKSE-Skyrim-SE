@@ -4,7 +4,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STR
 # DLL name and SKSE-registered plugin name both follow the project name.
 # iHUDClaude's ArousedWidgetBridge kReceiver must match this name.
 # 3.8.0 (2026-09-27): version follows the Nexus page (3.7 -> 3.8); the repo was at 0.4.0.
-project(ArousedWidget VERSION 3.8.0 LANGUAGES CXX)
+project(ArousedWidget VERSION 3.8.1 LANGUAGES CXX)
 
 # Output to MO2 mods folder
 if(DEFINED ENV{SKYRIM_MODS_FOLDER} AND IS_DIRECTORY "$ENV{SKYRIM_MODS_FOLDER}")
