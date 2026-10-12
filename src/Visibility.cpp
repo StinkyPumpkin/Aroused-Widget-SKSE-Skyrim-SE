@@ -118,9 +118,14 @@ namespace {
     // firing, so the AddRef landed on a freed object (Nexus report: SkyrimSE.exe+10EA1D9
     // `inc [rax+0x20]` under ArousedWidget -> HudManager::Render, strings "HUD Menu" /
     // "_root.HUDMovieBaseInstance.CompassShoutMeterHolder"). The menu/Is3DLoaded guards a
-    // few instructions earlier can't close that window. Now the read runs ONLY on the
-    // main thread (SKSE task, queued by WidgetController every 250 ms) and the render
-    // path reads these atomics.
+    // few instructions earlier can't close that window. Now the read runs ONLY as an SKSE
+    // UI task (queued by WidgetController every 250 ms) and the render path reads these
+    // atomics.
+    // --Claude 2026-10-13: AddUITask, not AddTask. AddTask tasks run on a BSJobs thread
+    // (Job_Post_process) at the same time as Job_UI, which runs the HUD movie's ActionScript;
+    // Scaleform's ref counts are not atomic, so the 4x/s GetVariable on the compass raced
+    // the compass script itself (2 CTDs, SkyrimSE.exe+FF1FB3 inside the compass's
+    // SetMarkers, on a freed clip handle). UI tasks run on the UI thread, between frames.
     std::atomic<bool> g_compassHidden{false};
     std::atomic<bool> g_compassResolved{false};
     std::atomic<bool> g_pollQueued{false};
@@ -328,12 +333,13 @@ namespace Visibility {
             g_compassHidden.store(false, std::memory_order_relaxed);
             return;
         }
-        // One outstanding task at a time: during a load the main thread does not drain
-        // SKSE tasks for seconds, and we must not pile up hundreds of polls behind it.
+        // One outstanding task at a time: during a load SKSE tasks can wait for seconds,
+        // and we must not pile up hundreds of polls behind them.
         if (g_pollQueued.exchange(true, std::memory_order_acq_rel)) return;
         auto* tasks = SKSE::GetTaskInterface();
         if (!tasks) { g_pollQueued.store(false, std::memory_order_relaxed); return; }
-        tasks->AddTask([]() {
+        // UI thread only: Scaleform is not thread-safe (see g_compassHidden above).
+        tasks->AddUITask([]() {
             g_pollQueued.store(false, std::memory_order_relaxed);
             auto* ui = RE::UI::GetSingleton();
             auto* player = RE::PlayerCharacter::GetSingleton();
