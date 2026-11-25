@@ -62,3 +62,9 @@ Full recipe in [BUILD.md](BUILD.md).
 - **[QTR-Modding](https://github.com/QTR-Modding/SKSE-Menu-Framework-3)** — SKSE Menu Framework
 - The **OSL Aroused** team — the arousal framework
 - The **SKSE** team
+
+## License
+
+Copyright (C) 2026 StinkyPumpkin
+
+GPL-3.0-or-later ([LICENSE](LICENSE)): free software under the GNU General Public License, version 3 or (at your option) any later version, WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. Built with [CommonLibSSE-NG](https://github.com/alandtse/CommonLibSSE-NG) by alandtse (v9.1.0, GPL-3.0-or-later with the Modding Exception).
